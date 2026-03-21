@@ -59,7 +59,6 @@ th{color:#00ff7f;}
 <div id="autoAddCounter"></div>
 <div class="progress-bar"><div id="autoAddProgress" class="progress"></div></div>
 
-<ul id="autoAddList"></ul>
 <div id="autoAddConsole" class="console-log"></div>
 </section>
 
@@ -82,7 +81,7 @@ th{color:#00ff7f;}
 <table>
 <thead>
 <tr>
-<th>Account</th>
+<th>Account (Phone)</th>
 <th class="success">Success</th>
 <th class="failed">Failed</th>
 <th class="pending">Skipped</th>
@@ -115,70 +114,78 @@ function logConsole(msg){
 }
 
 // ===== AUTO ADD =====
-document.getElementById("startAutoAddBtn").onclick=async()=>{
-  const source=document.getElementById("sourceGroupInput").value.trim()
-  const target=document.getElementById("targetGroupInput").value.trim()
+let isRunning = false
 
-  if(!source||!target) return alert("Enter groups")
+document.getElementById("startAutoAddBtn").onclick = async () => {
+  if(isRunning) return alert("Already running!")
+  isRunning = true
 
-  const status=document.getElementById("autoAddStatus")
-  const list=document.getElementById("autoAddList")
-  const counter=document.getElementById("autoAddCounter")
-  const progress=document.getElementById("autoAddProgress")
+  const source = document.getElementById("sourceGroupInput").value.trim()
+  const target = document.getElementById("targetGroupInput").value.trim()
+  if(!source||!target){ isRunning=false; return alert("Enter groups") }
 
-  status.innerText="Fetching source..."
+  const status = document.getElementById("autoAddStatus")
+  const counter = document.getElementById("autoAddCounter")
+  const progress = document.getElementById("autoAddProgress")
 
-  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
-  const members=await res.json()
+  status.innerText = "Fetching source..."
+  const members = await fetch("/members",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({group:source})
+  }).then(r=>r.json())
 
-  status.innerText="Exporting target..."
-  const ex=await fetch("/export-members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({targetGroup:target})})
-  const exData=await ex.json()
+  status.innerText = "Fetching target..."
+  const exData = await fetch("/export-members",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({targetGroup:target})
+  }).then(r=>r.json())
+  const targetSet = new Set((exData.members||[]).map(m=>m.username||m.user_id))
 
-  const targetSet=new Set((exData.members||[]).map(m=>m.username||m.user_id))
+  status.innerText = "Fetching history..."
+  const hist = await fetch("/history").then(r=>r.json())
+  const historySet = new Set(Object.values(hist||{})
+    .filter(h=>h.status==="success")
+    .map(h=>h.username||h.user_id))
 
-  const hist=await fetch("/history").then(r=>r.json())
-  const historySet=new Set(Object.values(hist||{}).filter(h=>h.status==="success").map(h=>h.username||h.user_id))
-
-  list.innerHTML=""
-  let done=0
+  let done=0, success=0, failed=0, skipped=0
+  const delay = 15000 // 15 sec per success
 
   for(const m of members){
-    const id=m.username||m.user_id
+    const id = m.username||m.user_id
 
-    if(targetSet.has(id)){
-      list.innerHTML+=`<li>❌ ${id} → <span class="skipped">TARGET</span></li>`
-      logConsole("SKIP TARGET "+id)
-      done++
-      counter.innerText=`${done}/${members.length}`
-      continue
+    if(targetSet.has(id) || historySet.has(id)){
+      skipped++
+      logConsole(`⚠️ SKIP ${id}`)
+    } else {
+      try{
+        const result = await fetch("/add-member",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({...m,targetGroup:target})
+        }).then(r=>r.json())
+
+        if(result.status==="success") success++
+        else failed++
+
+        logConsole(`${id} → ${result.status}`)
+        if(result.status==="success") await new Promise(r=>setTimeout(r, delay))
+
+      }catch(err){
+        failed++
+        logConsole(`${id} → failed`)
+      }
     }
-
-    if(historySet.has(id)){
-      list.innerHTML+=`<li>⚠️ ${id} → <span class="pending">HISTORY</span></li>`
-      logConsole("SKIP HISTORY "+id)
-      done++
-      counter.innerText=`${done}/${members.length}`
-      continue
-    }
-
-    const add=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
-    const result=await add.json()
-
-    const color=result.status==="success"?"success":"failed"
-
-    list.innerHTML+=`<li>${id} → <span class="${color}">${result.status}</span></li>`
 
     done++
-    counter.innerText=`${done}/${members.length}`
-    progress.style.width=`${(done/members.length)*100}%`
-
-    if(result.status==="success"){
-      await new Promise(r=>setTimeout(r,30000))
-    }
+    counter.innerText = `${done}/${members.length}`
+    progress.style.width = `${(done/members.length)*100}%`
+    status.innerText = `Running | ✅ ${success} ❌ ${failed} ⚠️ ${skipped}`
   }
 
-  status.innerText="DONE ✅"
+  status.innerText = "DONE ✅"
+  isRunning = false
 }
 
 // ===== EXPORT =====
@@ -214,36 +221,35 @@ async function fetchHistory(){
   const summary={}
 
   Object.values(data).forEach(h=>{
-    const acc=h.accountUsed||"unknown"
-
-    if(!summary[acc]){
-      summary[acc]={success:0,failed:0,skipped:0,total:0}
+    const phone = h.accountPhone || "unknown" // <-- show phone number
+    if(!summary[phone]){
+      summary[phone]={success:0,failed:0,skipped:0,total:0}
     }
 
-    summary[acc].total++
+    summary[phone].total++
 
-    if(h.status==="success") summary[acc].success++
-    else if(h.status==="failed") summary[acc].failed++
-    else summary[acc].skipped++
+    if(h.status==="success") summary[phone].success++
+    else if(h.status==="failed") summary[phone].failed++
+    else summary[phone].skipped++
 
     const color=h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
 
     list.innerHTML+=`
     <li class="${color}">
-    ${h.username||h.user_id} → ${h.status} (${acc})
+    ${h.username||h.user_id} → ${h.status} (${phone})
     <br><small>${h.reason||""}</small>
     </li>`
   })
 
-  Object.keys(summary).forEach(acc=>{
-    const s=summary[acc]
+  Object.keys(summary).forEach(phone=>{
+    const s=summary[phone]
     table.innerHTML+=`
     <tr>
-    <td>${acc}</td>
-    <td class="success">${s.success}</td>
-    <td class="failed">${s.failed}</td>
-    <td class="pending">${s.skipped}</td>
-    <td>${s.total}</td>
+      <td>${phone}</td> <!-- show phone number -->
+      <td class="success">${s.success}</td>
+      <td class="failed">${s.failed}</td>
+      <td class="pending">${s.skipped}</td>
+      <td>${s.total}</td>
     </tr>`
   })
 }
