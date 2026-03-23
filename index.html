@@ -28,6 +28,10 @@ li{list-style:none;border-bottom:1px solid #333;padding:6px;}
 table{width:100%;margin-top:10px;border-collapse:collapse;}
 th,td{padding:8px;border-bottom:1px solid #333;text-align:center;}
 th{color:#00ff7f;}
+.status-online{color:#00ff7f;}
+.status-recent{color:#00ccff;}
+.status-week{color:#ffaa00;}
+.status-off{color:#777;}
 </style>
 </head>
 <body>
@@ -39,7 +43,7 @@ th{color:#00ff7f;}
 
 <!-- AUTO ADD -->
 <section id="auto" class="page active">
-<div class="card-title">Auto Add Members</div>
+<div class="card-title">Auto Add Members (Smart Active Filter)</div>
 <input id="sourceGroupInput" placeholder="Source Group">
 <input id="targetGroupInput" placeholder="Target Group">
 <button id="startAutoAddBtn">Start Auto Add</button>
@@ -84,6 +88,19 @@ function showPage(id){
   document.getElementById(id).classList.add('active')
 }
 
+// ===== STATUS COLOR =====
+function getStatusClass(status){
+  if(status==="UserStatusOnline") return "status-online"
+  if(status==="UserStatusRecently") return "status-recent"
+  if(status==="UserStatusLastWeek") return "status-week"
+  return "status-off"
+}
+
+// ===== SMART UI FILTER =====
+function isActiveUI(status){
+  return status==="UserStatusOnline" || status==="UserStatusRecently"
+}
+
 // ===== LOG =====
 function logConsole(msg){
   const c=document.getElementById("autoAddConsole")
@@ -103,7 +120,7 @@ document.getElementById("startAutoAddBtn").onclick=async()=>{
   const counter=document.getElementById("autoAddCounter")
   const progress=document.getElementById("autoAddProgress")
 
-  status.innerText="Fetching source members..."
+  status.innerText="Fetching members..."
   list.innerHTML=""
   progress.style.width="0%"
 
@@ -113,7 +130,10 @@ document.getElementById("startAutoAddBtn").onclick=async()=>{
     body:JSON.stringify({group:source})
   })
 
-  const members=await res.json()
+  let members=await res.json()
+
+  // 🧠 UI FILTER (extra protection)
+  members = members.filter(m => isActiveUI(m.status))
 
   const hist=await fetch("/history").then(r=>r.json())
   const historySet=new Set(
@@ -126,10 +146,16 @@ document.getElementById("startAutoAddBtn").onclick=async()=>{
 
   for(const m of members){
     const id=m.username||m.user_id
+    const statusClass=getStatusClass(m.status)
 
     // skip history
     if(historySet.has(id)){
-      list.innerHTML+=`<li>⚠️ ${id} → <span class="pending">HISTORY</span></li>`
+      list.innerHTML+=`
+        <li>
+          ⚠️ ${id} 
+          <span class="${statusClass}">(${m.status})</span>
+          → <span class="pending">HISTORY</span>
+        </li>`
       logConsole("SKIP HISTORY "+id)
       done++
       counter.innerText=`${done}/${members.length}`
@@ -145,8 +171,14 @@ document.getElementById("startAutoAddBtn").onclick=async()=>{
     const result=await add.json()
     const color=result.status==="success"?"success":"failed"
 
-    list.innerHTML+=`<li>${id} → <span class="${color}">${result.status}</span></li>`
-    logConsole(`${id} → ${result.status} (${result.accountUsed})`)
+    list.innerHTML+=`
+      <li>
+        ${id} 
+        <span class="${statusClass}">(${m.status})</span>
+        → <span class="${color}">${result.status}</span>
+      </li>`
+
+    logConsole(`${id} (${m.status}) → ${result.status} (${result.accountUsed})`)
 
     done++
     counter.innerText=`${done}/${members.length}`
