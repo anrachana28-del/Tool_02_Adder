@@ -181,7 +181,7 @@ function logConsole(msg){
   autoAddConsole.scrollTop = autoAddConsole.scrollHeight;
 }
 
-// ===== Auto Add Members (No Checks) =====
+// ===== Auto Add Members with Batch 100 =====
 const autoAddList=document.getElementById("autoAddList"),
       counter=document.getElementById("autoAddCounter"),
       progress=document.getElementById("autoAddProgress"),
@@ -195,14 +195,24 @@ startAutoAddBtn.onclick=async()=>{
   const source=sourceGroupInput.value.trim(), target=targetGroupInput.value.trim();
   if(!source||!target) return alert("Enter groups");
   loading.style.display="block"; autoAddStatus.innerText="Fetching members..."; autoAddConsole.innerHTML="";
-  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})});
-  const members=await res.json(); loading.style.display="none";
-  if(members.error){ alert(members.error); return; }
+
+  let offset=0, limit=100, allMembers=[];
+  while(true){
+    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source, offset, limit})});
+    const data=await res.json();
+    if(data.error){ alert(data.error); loading.style.display="none"; return; }
+    allMembers = allMembers.concat(data.members);
+    if(!data.hasMore) break;
+    offset = data.nextOffset;
+  }
+  loading.style.display="none";
 
   const accRes=await fetch("/account-status"); const accData=await accRes.json();
   let accountsList=Object.keys(accData); let accIndex=0; let processed=0;
 
-  autoAddList.innerHTML=""; counter.innerText=`0 / ${members.length}`; progress.style.width=`0%`;
+  const histRes=await fetch("/history"); const histData=await histRes.json(); const histList = Object.values(histData||{});
+
+  autoAddList.innerHTML=""; counter.innerText=`0 / ${allMembers.length}`; progress.style.width=`0%`;
 
   function getNextAvailableAccount(startIndex){
     const now = Date.now();
@@ -216,18 +226,27 @@ startAutoAddBtn.onclick=async()=>{
     return -1;
   }
 
-  for(const m of members){
+  for(const m of allMembers){
+    const nowTime = new Date().toLocaleTimeString('en-US',{timeZone:'Asia/Phnom_Penh',hour12:true});
+    const alreadyHistory = histList.some(h => (h.username===m.username || h.user_id===m.user_id) && h.status==="success");
+    if(alreadyHistory){
+      logConsole(`[SKIP ${nowTime}] ${m.username||m.user_id} already in history`);
+      processed++; counter.innerText=`${processed} / ${allMembers.length}`; progress.style.width=`${Math.floor((processed/allMembers.length)*100)}%`;
+      continue;
+    }
+
     let nextAccIdx=getNextAvailableAccount(accIndex);
-    while(nextAccIdx===-1){ 
-      autoAddStatus.innerText="All accounts FloodWait. Waiting..."; 
-      await new Promise(r=>setTimeout(r,5000)); 
-      nextAccIdx=getNextAvailableAccount(accIndex);
+    if(nextAccIdx===-1){ 
+        autoAddStatus.innerText="All accounts FloodWait. Waiting..."; 
+        await new Promise(r=>setTimeout(r,5000)); 
+        nextAccIdx=getNextAvailableAccount(accIndex); 
+        if(nextAccIdx===-1) break; 
     }
     accIndex=nextAccIdx;
     const currentAccount=accountsList[accIndex];
-    const nowTime = new Date().toLocaleTimeString('en-US',{timeZone:'Asia/Phnom_Penh',hour12:true});
 
     logConsole(`[INFO ${nowTime}] Using account: ${currentAccount} for ${m.username||m.user_id}`);
+
     const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})});
     const result=await addRes.json();
 
@@ -235,10 +254,10 @@ startAutoAddBtn.onclick=async()=>{
     li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="${result.status==='success'?'success':result.status==='skipped'?'skipped':'failed'}">${result.status}</span> by ${result.accountUsed} <span class="pending">[${nowTime}]</span><br><span class="pending">Reason: ${result.reason||'N/A'}</span>`;
     autoAddList.appendChild(li); autoAddList.scrollTop=autoAddList.scrollHeight;
 
-    processed++; counter.innerText=`${processed} / ${members.length}`; progress.style.width=`${Math.floor((processed/members.length)*100)}%`;
+    processed++; counter.innerText=`${processed} / ${allMembers.length}`; progress.style.width=`${Math.floor((processed/allMembers.length)*100)}%`;
 
     if(result.status==="success"){
-      const delay = 30000 + Math.floor(Math.random()*10000); // Random 30–40s
+      const delay = 30000 + Math.floor(Math.random()*10000);
       let countdown = Math.floor(delay/1000);
       autoAddStatus.innerText = `Waiting ${countdown}s before next add...`;
       const interval = setInterval(()=>{
