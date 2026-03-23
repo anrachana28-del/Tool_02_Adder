@@ -2,61 +2,88 @@
 <html lang="km">
 <head>
 <meta charset="UTF-8">
-<title>Telegram Auto-Add Ultra Speed 🚀</title>
+<title>Telegram Auto-Add PRO MAX 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+
 <style>
 *{box-sizing:border-box;}
 body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;}
 .container{max-width:1100px;margin:auto;padding:15px;}
 section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{text-align:center;font-size:22px;color:#00ff7f;margin-bottom:10px;}
+
 input{width:100%;padding:10px;margin-top:8px;border-radius:10px;border:none;background:#111;color:#fff;}
 button{margin-top:10px;padding:10px;border:none;border-radius:10px;background:#00ff7f;cursor:pointer;}
 button:hover{background:#00cc66;}
+
 .success{color:#00ff7f;}
 .failed{color:#ff4c4c;}
 .skipped{color:#9999ff;}
 .pending{color:#ffcc00;}
+
 ul{max-height:300px;overflow:auto;padding:0;}
 li{list-style:none;border-bottom:1px solid #333;padding:6px;}
+
 .progress-bar{background:#111;height:10px;border-radius:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;}
+
 .console-log{background:#111;padding:10px;height:150px;overflow:auto;margin-top:10px;}
+
 .page{display:none;}
 .page.active{display:block;}
+
 table{width:100%;margin-top:10px;border-collapse:collapse;}
 th,td{padding:8px;border-bottom:1px solid #333;text-align:center;}
 th{color:#00ff7f;}
-.timer{margin-top:5px;font-size:14px;color:#fff;}
 </style>
 </head>
+
 <body>
 <div class="container">
 
+<!-- NAV -->
 <button onclick="showPage('auto')">Auto Add</button>
+<button onclick="showPage('export')">Export</button>
 <button onclick="showPage('history')">History</button>
+<button onclick="showPage('daily')">Daily Summary</button>
 
+<!-- AUTO ADD -->
 <section id="auto" class="page active">
-<div class="card-title">Ultra Speed Multi-Account Auto Add</div>
+<div class="card-title">Auto Add Members</div>
+
 <input id="sourceGroupInput" placeholder="Source Group">
 <input id="targetGroupInput" placeholder="Target Group">
-<button id="startUltraBtn">Start Ultra Add 🚀</button>
-<div class="timer" id="timeElapsed">⏱️ Time: 00:00:00</div>
-<div class="timer" id="delayStatus">⏳ Delay: 00:00:00</div>
+<button id="startAutoAddBtn">Start Auto Add</button>
+
+<div id="autoAddStatus"></div>
 <div id="autoAddCounter"></div>
 <div class="progress-bar"><div id="autoAddProgress" class="progress"></div></div>
+
 <ul id="autoAddList"></ul>
 <div id="autoAddConsole" class="console-log"></div>
 </section>
 
+<!-- EXPORT -->
+<section id="export" class="page">
+<div class="card-title">Export Target Group</div>
+
+<input id="exportGroupInput" placeholder="Target Group">
+<button id="exportBtn">Export Members</button>
+
+<div id="exportStatus"></div>
+<ul id="exportList"></ul>
+</section>
+
+<!-- HISTORY -->
 <section id="history" class="page">
 <div class="card-title">History + Account Summary</div>
+
 <h3>📊 Account Summary</h3>
 <table>
 <thead>
 <tr>
-<th>Phone</th>
+<th>Account</th>
 <th class="success">Success</th>
 <th class="failed">Failed</th>
 <th class="pending">Skipped</th>
@@ -68,126 +95,126 @@ th{color:#00ff7f;}
 
 <h3>📜 History Logs</h3>
 <ul id="historyList"></ul>
+
 <button id="downloadHistoryBtn">Download JSON</button>
+</section>
+
+<!-- DAILY SUMMARY -->
+<section id="daily" class="page">
+<div class="card-title">📅 Daily Summary</div>
+<ul id="dailySummaryList"></ul>
 </section>
 
 </div>
 
 <script>
+// ===== NAV =====
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.getElementById(id).classList.add('active')
 }
 
+// ===== LOG =====
 function logConsole(msg){
   const c=document.getElementById("autoAddConsole")
   c.innerHTML += msg+"<br>"
   c.scrollTop=c.scrollHeight
 }
 
-let startTime=0
-let timerInterval=null
-function formatTime(sec){
-  const h=Math.floor(sec/3600)
-  const m=Math.floor((sec%3600)/60)
-  const s=sec%60
-  return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`
-}
-function startTimer(){
-  startTime = Date.now()
-  timerInterval=setInterval(()=>{
-    const sec = Math.floor((Date.now()-startTime)/1000)
-    document.getElementById("timeElapsed").innerText="⏱️ Time: "+formatTime(sec)
-  },1000)
-}
-function stopTimer(){ clearInterval(timerInterval) }
-
-function delayCountdown(ms){
-  return new Promise(resolve=>{
-    let sec=Math.floor(ms/1000)
-    const el=document.getElementById("delayStatus")
-    el.innerText="⏳ Delay: "+formatTime(sec)
-    const interval=setInterval(()=>{
-      sec--
-      el.innerText="⏳ Delay: "+formatTime(sec)
-      if(sec<=0){ clearInterval(interval); el.innerText="⏳ Delay: 00:00:00"; resolve() }
-    },1000)
-  })
-}
-
-async function fetchHistory(){
-  const res=await fetch("/history")
-  const data=await res.json()
-  const list=document.getElementById("historyList")
-  const table=document.getElementById("accountSummaryTable")
-  list.innerHTML=""; table.innerHTML=""
-  const summary={}
-  Object.values(data).forEach(h=>{
-    const acc=h.accountUsed||"unknown"
-    if(!summary[acc]) summary[acc]={success:0,failed:0,skipped:0,total:0}
-    summary[acc].total++
-    if(h.status==="success") summary[acc].success++
-    else if(h.status==="failed") summary[acc].failed++
-    else summary[acc].skipped++
-    const color=h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
-    list.innerHTML+=`<li class="${color}">${h.username||h.user_id} → ${h.status} (${h.accountUsed})<br><small>${h.reason||""}</small></li>`
-  })
-  Object.keys(summary).forEach(acc=>{
-    const s=summary[acc]
-    table.innerHTML+=`<tr>
-      <td>${acc}</td>
-      <td class="success">${s.success}</td>
-      <td class="failed">${s.failed}</td>
-      <td class="pending">${s.skipped}</td>
-      <td>${s.total}</td>
-    </tr>`
-  })
-}
-setInterval(fetchHistory,5000)
-fetchHistory()
-
-// ===== ULTRA SPEED ADD =====
-document.getElementById("startUltraBtn").onclick = async()=>{
+// ===== AUTO ADD (BATCH) =====
+document.getElementById("startAutoAddBtn").onclick=async()=>{
   const source=document.getElementById("sourceGroupInput").value.trim()
   const target=document.getElementById("targetGroupInput").value.trim()
   if(!source||!target) return alert("Enter groups")
 
-  startTimer()
+  const status=document.getElementById("autoAddStatus")
   const list=document.getElementById("autoAddList")
   const counter=document.getElementById("autoAddCounter")
   const progress=document.getElementById("autoAddProgress")
-  list.innerHTML=""; counter.innerText="Starting..."
 
-  // Fetch source members
-  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
-  const members=await res.json()
+  status.innerText="Fetching source..."
+  const membersRes=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
+  const members=await membersRes.json()
 
-  const batchSize = 5 // parallel 5 accounts
-  let done=0
+  status.innerText="Fetching target..."
+  const targetRes=await fetch("/export-check-members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sourceGroup:source,targetGroup:target})})
+  const targetData=await targetRes.json()
 
-  async function addMember(m){
-    const id=m.username||m.user_id
-    const add=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
-    const result=await add.json()
-    const color=result.status==="success"?"success":result.status==="failed"?"failed":"skipped"
-    list.innerHTML+=`<li>${id} → <span class="${color}">${result.status}</span></li>`
-    logConsole(`${id} → ${result.status} (${result.accountUsed})`)
-    done++
-    counter.innerText=`${done}/${members.length}`
-    progress.style.width=`${(done/members.length)*100}%`
-    if(result.status==="success") await delayCountdown(5000) // 5s delay per success
+  const readyMembers = targetData.members.filter(m=>!m.alreadyInTarget)
+  const total=readyMembers.length
+  list.innerHTML=""; let done=0
+
+  while(readyMembers.length){
+    const batch = readyMembers.splice(0,5) // batch 5 members
+    const results = await Promise.all(batch.map(async m=>{
+      try{
+        const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
+        return await addRes.json()
+      }catch(e){return {status:"failed",reason:e.message,username:m.username||m.user_id}}
+    }))
+
+    results.forEach((r,i)=>{
+      const id=batch[i].username||batch[i].user_id
+      const color=r.status==="success"?"success":r.status==="failed"?"failed":"skipped"
+      list.innerHTML+=`<li>${id} → <span class="${color}">${r.status}</span></li>`
+      logConsole(`${id} → ${r.status} ${r.reason||""}`)
+      done++
+      counter.innerText=`${done}/${total}`
+      progress.style.width=`${(done/total)*100}%`
+    })
+    await new Promise(r=>setTimeout(r,10000 + Math.random()*5000))
   }
-
-  // Parallel batches
-  for(let i=0;i<members.length;i+=batchSize){
-    const batch=members.slice(i,i+batchSize)
-    await Promise.all(batch.map(addMember)) // parallel execution
-  }
-
-  stopTimer()
-  document.getElementById("delayStatus").innerText="⏳ Delay: 00:00:00"
-  counter.innerText="DONE ✅"
+  status.innerText="DONE ✅"
 }
+
+// ===== EXPORT =====
+document.getElementById("exportBtn").onclick=async()=>{
+  const g=document.getElementById("exportGroupInput").value.trim()
+  const status=document.getElementById("exportStatus")
+  const list=document.getElementById("exportList")
+  status.innerText="Loading..."; list.innerHTML=""
+  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:g})})
+  const members=await res.json()
+  members.forEach(m=>{list.innerHTML+=`<li>${m.username||m.user_id}</li>`})
+  status.innerText="Done "+members.length
+}
+
+// ===== HISTORY =====
+async function fetchHistory(){
+  const res=await fetch("/history"); const data=await res.json()
+  const list=document.getElementById("historyList")
+  const table=document.getElementById("accountSummaryTable")
+  const dailyList=document.getElementById("dailySummaryList")
+  list.innerHTML=""; table.innerHTML=""; dailyList.innerHTML=""
+
+  const summary={}, daily={success:0,failed:0,skipped:0,total:0}
+  Object.values(data).forEach(h=>{
+    const acc=h.accountUsed||"unknown"
+    if(!summary[acc]) summary[acc]={success:0,failed:0,skipped:0,total:0}
+    summary[acc].total++
+    daily.total++
+    if(h.status==="success"){ summary[acc].success++; daily.success++ }
+    else if(h.status==="failed"){ summary[acc].failed++; daily.failed++ }
+    else { summary[acc].skipped++; daily.skipped++ }
+    const color=h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
+    list.innerHTML+=`<li class="${color}">${h.username||h.user_id} → ${h.status} (${acc})<br><small>${h.reason||""}</small></li>`
+  })
+
+  Object.keys(summary).forEach(acc=>{
+    const s=summary[acc]
+    table.innerHTML+=`<tr><td>${acc}</td><td class="success">${s.success}</td><td class="failed">${s.failed}</td><td class="pending">${s.skipped}</td><td>${s.total}</td></tr>`
+  })
+
+  dailyList.innerHTML=`
+    <li>✅ Success: ${daily.success}</li>
+    <li>❌ Failed: ${daily.failed}</li>
+    <li>⚠ Skipped: ${daily.skipped}</li>
+    <li>Total: ${daily.total}</li>
+  `
+}
+setInterval(fetchHistory,5000); fetchHistory()
+
+// ===== DOWNLOAD =====
 document.getElementById("downloadHistoryBtn").onclick=async()=>{
   const data=await fetch("/history").then(r=>r.json())
   const blob=new Blob([JSON.stringify(data,null,2)])
@@ -197,5 +224,6 @@ document.getElementById("downloadHistoryBtn").onclick=async()=>{
   a.click()
 }
 </script>
+
 </body>
 </html>
