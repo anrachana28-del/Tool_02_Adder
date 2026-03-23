@@ -132,13 +132,7 @@ autoCheck()
 // ===== Get Available Account =====
 function getAvailableAccount(){
   const now = Date.now()
-  for(const acc of accounts){
-    if(acc.floodWaitUntil && acc.floodWaitUntil < now){
-      acc.floodWaitUntil = null
-      acc.status = "active"
-    }
-  }
-  return accounts.find(a => !a.floodWaitUntil)
+  return accounts.find(a => a.status === "active" && (!a.floodWaitUntil || a.floodWaitUntil < now))
 }
 
 // ===== Members =====
@@ -237,7 +231,7 @@ app.post('/add-member',async(req,res)=>{
 
       status="success"
       reason="joined"
-      await sleep(30000)
+      await sleep(30000 + Math.floor(Math.random()*10000)) // 30–40s
 
     }catch(err){
       const wait=parseFlood(err)
