@@ -28,10 +28,7 @@ li{list-style:none;border-bottom:1px solid #333;padding:6px;}
 table{width:100%;margin-top:10px;border-collapse:collapse;}
 th,td{padding:8px;border-bottom:1px solid #333;text-align:center;}
 th{color:#00ff7f;}
-.status-online{color:#00ff7f;}
-.status-recent{color:#00ccff;}
-.status-week{color:#ffaa00;}
-.status-off{color:#777;}
+#timeElapsed,#delayStatus{margin-top:10px;text-align:center;font-size:16px;}
 </style>
 </head>
 <body>
@@ -43,15 +40,15 @@ th{color:#00ff7f;}
 
 <!-- AUTO ADD -->
 <section id="auto" class="page active">
-<div class="card-title">Auto Add Members (Smart Active Filter)</div>
+<div class="card-title">Auto Add Members</div>
 <input id="sourceGroupInput" placeholder="Source Group">
 <input id="targetGroupInput" placeholder="Target Group">
 <button id="startAutoAddBtn">Start Auto Add</button>
-
 <div id="autoAddStatus"></div>
 <div id="autoAddCounter"></div>
 <div class="progress-bar"><div id="autoAddProgress" class="progress"></div></div>
-
+<div id="timeElapsed">⏱️ Time: 0s</div>
+<div id="delayStatus">⏳ Delay: 0s</div>
 <ul id="autoAddList"></ul>
 <div id="autoAddConsole" class="console-log"></div>
 </section>
@@ -59,7 +56,6 @@ th{color:#00ff7f;}
 <!-- HISTORY -->
 <section id="history" class="page">
 <div class="card-title">History + Account Summary</div>
-
 <h3>📊 Account Summary</h3>
 <table>
 <thead>
@@ -88,17 +84,29 @@ function showPage(id){
   document.getElementById(id).classList.add('active')
 }
 
-// ===== STATUS COLOR =====
-function getStatusClass(status){
-  if(status==="UserStatusOnline") return "status-online"
-  if(status==="UserStatusRecently") return "status-recent"
-  if(status==="UserStatusLastWeek") return "status-week"
-  return "status-off"
+// ===== Timer & Delay =====
+let startTime = 0
+let timerInterval = null
+function startTimer(){
+  startTime = Date.now()
+  timerInterval = setInterval(()=>{
+    const sec = Math.floor((Date.now()-startTime)/1000)
+    document.getElementById("timeElapsed").innerText = "⏱️ Time: "+sec+"s"
+  },1000)
 }
+function stopTimer(){ clearInterval(timerInterval) }
 
-// ===== SMART UI FILTER =====
-function isActiveUI(status){
-  return status==="UserStatusOnline" || status==="UserStatusRecently"
+function delayCountdown(ms){
+  return new Promise(resolve=>{
+    let sec = Math.floor(ms/1000)
+    const el = document.getElementById("delayStatus")
+    el.innerText = "⏳ Delay: "+sec+"s"
+    const interval = setInterval(()=>{
+      sec--
+      el.innerText = "⏳ Delay: "+sec+"s"
+      if(sec<=0){ clearInterval(interval); el.innerText="⏳ Delay: 0s"; resolve() }
+    },1000)
+  })
 }
 
 // ===== LOG =====
@@ -112,7 +120,6 @@ function logConsole(msg){
 document.getElementById("startAutoAddBtn").onclick=async()=>{
   const source=document.getElementById("sourceGroupInput").value.trim()
   const target=document.getElementById("targetGroupInput").value.trim()
-
   if(!source||!target) return alert("Enter groups")
 
   const status=document.getElementById("autoAddStatus")
@@ -120,124 +127,66 @@ document.getElementById("startAutoAddBtn").onclick=async()=>{
   const counter=document.getElementById("autoAddCounter")
   const progress=document.getElementById("autoAddProgress")
 
-  status.innerText="Fetching members..."
-  list.innerHTML=""
-  progress.style.width="0%"
+  startTimer()
+  status.innerText="Fetching source..."
+  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
+  const members=await res.json()
 
-  const res=await fetch("/members",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({group:source})
-  })
-
-  let members=await res.json()
-
-  // 🧠 UI FILTER (extra protection)
-  members = members.filter(m => isActiveUI(m.status))
-
-  const hist=await fetch("/history").then(r=>r.json())
-  const historySet=new Set(
-    Object.values(hist||{})
-      .filter(h=>h.status==="success")
-      .map(h=>h.username||h.user_id)
-  )
-
-  let done=0
+  list.innerHTML=""; let done=0
 
   for(const m of members){
     const id=m.username||m.user_id
-    const statusClass=getStatusClass(m.status)
 
-    // skip history
-    if(historySet.has(id)){
-      list.innerHTML+=`
-        <li>
-          ⚠️ ${id} 
-          <span class="${statusClass}">(${m.status})</span>
-          → <span class="pending">HISTORY</span>
-        </li>`
-      logConsole("SKIP HISTORY "+id)
-      done++
-      counter.innerText=`${done}/${members.length}`
-      continue
-    }
-
-    const add=await fetch("/add-member",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({...m,targetGroup:target})
-    })
-
+    // Add Member
+    const add=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
     const result=await add.json()
-    const color=result.status==="success"?"success":"failed"
 
-    list.innerHTML+=`
-      <li>
-        ${id} 
-        <span class="${statusClass}">(${m.status})</span>
-        → <span class="${color}">${result.status}</span>
-      </li>`
-
-    logConsole(`${id} (${m.status}) → ${result.status} (${result.accountUsed})`)
+    // Show color + log
+    const color=result.status==="success"?"success":result.status==="skipped"?"skipped":"failed"
+    list.innerHTML+=`<li>${id} → <span class="${color}">${result.status}</span></li>`
+    logConsole(`${id} → ${result.status} (${result.accountUsed})`)
 
     done++
     counter.innerText=`${done}/${members.length}`
     progress.style.width=`${(done/members.length)*100}%`
 
-    if(result.status==="success"){
-      await new Promise(r=>setTimeout(r,20000))
-    }
+    // Delay show
+    if(result.status==="success") await delayCountdown(20000)
   }
 
   status.innerText="DONE ✅"
+  stopTimer()
 }
 
 // ===== HISTORY =====
 async function fetchHistory(){
   const res=await fetch("/history")
   const data=await res.json()
-
   const list=document.getElementById("historyList")
   const table=document.getElementById("accountSummaryTable")
-
-  list.innerHTML=""
-  table.innerHTML=""
+  list.innerHTML=""; table.innerHTML=""
 
   const summary={}
-
   Object.values(data).forEach(h=>{
-    const phone=h.phone||h.accountUsed||"unknown"
-
-    if(!summary[phone]){
-      summary[phone]={success:0,failed:0,skipped:0,total:0}
-    }
-
-    summary[phone].total++
-
-    if(h.status==="success") summary[phone].success++
-    else if(h.status==="failed") summary[phone].failed++
-    else summary[phone].skipped++
-
+    const acc=h.accountUsed||"unknown"
+    if(!summary[acc]) summary[acc]={success:0,failed:0,skipped:0,total:0}
+    summary[acc].total++
+    if(h.status==="success") summary[acc].success++
+    else if(h.status==="failed") summary[acc].failed++
+    else summary[acc].skipped++
     const color=h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
-
-    list.innerHTML+=`
-      <li class="${color}">
-        ${h.username||h.user_id} → ${h.status} (${phone})
-        <br><small>${h.reason||""}</small>
-      </li>`
+    list.innerHTML+=`<li class="${color}">${h.username||h.user_id} → ${h.status} (${h.accountUsed})<br><small>${h.reason||""}</small></li>`
   })
 
-  Object.keys(summary).forEach(phone=>{
-    const s=summary[phone]
-
-    table.innerHTML+=`
-      <tr>
-        <td>${phone}</td>
-        <td class="success">${s.success}</td>
-        <td class="failed">${s.failed}</td>
-        <td class="pending">${s.skipped}</td>
-        <td>${s.total}</td>
-      </tr>`
+  Object.keys(summary).forEach(acc=>{
+    const s=summary[acc]
+    table.innerHTML+=`<tr>
+      <td>${acc}</td>
+      <td class="success">${s.success}</td>
+      <td class="failed">${s.failed}</td>
+      <td class="pending">${s.skipped}</td>
+      <td>${s.total}</td>
+    </tr>`
   })
 }
 
