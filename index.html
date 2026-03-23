@@ -2,7 +2,7 @@
 <html lang="km">
 <head>
 <meta charset="UTF-8">
-<title>Telegram Auto-Add PRO MAX 🚀</title>
+<title>Telegram Auto-Add Ultra Speed 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
@@ -34,16 +34,14 @@ th{color:#00ff7f;}
 <body>
 <div class="container">
 
-<!-- NAV -->
 <button onclick="showPage('auto')">Auto Add</button>
 <button onclick="showPage('history')">History</button>
 
-<!-- AUTO ADD -->
 <section id="auto" class="page active">
-<div class="card-title">Auto Add Members</div>
+<div class="card-title">Ultra Speed Multi-Account Auto Add</div>
 <input id="sourceGroupInput" placeholder="Source Group">
 <input id="targetGroupInput" placeholder="Target Group">
-<button id="startAutoAddBtn">Start Auto Add</button>
+<button id="startUltraBtn">Start Ultra Add 🚀</button>
 <div class="timer" id="timeElapsed">⏱️ Time: 00:00:00</div>
 <div class="timer" id="delayStatus">⏳ Delay: 00:00:00</div>
 <div id="autoAddCounter"></div>
@@ -52,7 +50,6 @@ th{color:#00ff7f;}
 <div id="autoAddConsole" class="console-log"></div>
 </section>
 
-<!-- HISTORY -->
 <section id="history" class="page">
 <div class="card-title">History + Account Summary</div>
 <h3>📊 Account Summary</h3>
@@ -77,59 +74,54 @@ th{color:#00ff7f;}
 </div>
 
 <script>
-// ===== NAV =====
 function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'))
   document.getElementById(id).classList.add('active')
 }
 
-// ===== LOG =====
 function logConsole(msg){
-  const c = document.getElementById("autoAddConsole")
+  const c=document.getElementById("autoAddConsole")
   c.innerHTML += msg+"<br>"
-  c.scrollTop = c.scrollHeight
+  c.scrollTop=c.scrollHeight
 }
 
-// ===== Timer & Delay =====
-let startTime = 0
-let timerInterval = null
+let startTime=0
+let timerInterval=null
 function formatTime(sec){
-  const h = Math.floor(sec/3600)
-  const m = Math.floor((sec%3600)/60)
-  const s = sec%60
+  const h=Math.floor(sec/3600)
+  const m=Math.floor((sec%3600)/60)
+  const s=sec%60
   return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`
 }
 function startTimer(){
   startTime = Date.now()
-  timerInterval = setInterval(()=>{
+  timerInterval=setInterval(()=>{
     const sec = Math.floor((Date.now()-startTime)/1000)
-    document.getElementById("timeElapsed").innerText = "⏱️ Time: "+formatTime(sec)
+    document.getElementById("timeElapsed").innerText="⏱️ Time: "+formatTime(sec)
   },1000)
 }
 function stopTimer(){ clearInterval(timerInterval) }
 
 function delayCountdown(ms){
   return new Promise(resolve=>{
-    let sec = Math.floor(ms/1000)
-    const el = document.getElementById("delayStatus")
-    el.innerText = "⏳ Delay: "+formatTime(sec)
-    const interval = setInterval(()=>{
+    let sec=Math.floor(ms/1000)
+    const el=document.getElementById("delayStatus")
+    el.innerText="⏳ Delay: "+formatTime(sec)
+    const interval=setInterval(()=>{
       sec--
-      el.innerText = "⏳ Delay: "+formatTime(sec)
+      el.innerText="⏳ Delay: "+formatTime(sec)
       if(sec<=0){ clearInterval(interval); el.innerText="⏳ Delay: 00:00:00"; resolve() }
     },1000)
   })
 }
 
-// ===== HISTORY =====
 async function fetchHistory(){
-  const res = await fetch("/history")
-  const data = await res.json()
-  const list = document.getElementById("historyList")
-  const table = document.getElementById("accountSummaryTable")
+  const res=await fetch("/history")
+  const data=await res.json()
+  const list=document.getElementById("historyList")
+  const table=document.getElementById("accountSummaryTable")
   list.innerHTML=""; table.innerHTML=""
-
-  const summary = {}
+  const summary={}
   Object.values(data).forEach(h=>{
     const acc=h.accountUsed||"unknown"
     if(!summary[acc]) summary[acc]={success:0,failed:0,skipped:0,total:0}
@@ -137,13 +129,12 @@ async function fetchHistory(){
     if(h.status==="success") summary[acc].success++
     else if(h.status==="failed") summary[acc].failed++
     else summary[acc].skipped++
-    const color = h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
-    list.innerHTML += `<li class="${color}">${h.username||h.user_id} → ${h.status} (${h.accountUsed})<br><small>${h.reason||""}</small></li>`
+    const color=h.status==="success"?"success":h.status==="failed"?"failed":"skipped"
+    list.innerHTML+=`<li class="${color}">${h.username||h.user_id} → ${h.status} (${h.accountUsed})<br><small>${h.reason||""}</small></li>`
   })
-
   Object.keys(summary).forEach(acc=>{
-    const s = summary[acc]
-    table.innerHTML += `<tr>
+    const s=summary[acc]
+    table.innerHTML+=`<tr>
       <td>${acc}</td>
       <td class="success">${s.success}</td>
       <td class="failed">${s.failed}</td>
@@ -155,47 +146,48 @@ async function fetchHistory(){
 setInterval(fetchHistory,5000)
 fetchHistory()
 
-// ===== START AUTO ADD =====
-document.getElementById("startAutoAddBtn").onclick = async()=>{
-  const source = document.getElementById("sourceGroupInput").value.trim()
-  const target = document.getElementById("targetGroupInput").value.trim()
+// ===== ULTRA SPEED ADD =====
+document.getElementById("startUltraBtn").onclick = async()=>{
+  const source=document.getElementById("sourceGroupInput").value.trim()
+  const target=document.getElementById("targetGroupInput").value.trim()
   if(!source||!target) return alert("Enter groups")
 
   startTimer()
-  const status = document.getElementById("autoAddCounter")
-  const list = document.getElementById("autoAddList")
-  const progress = document.getElementById("autoAddProgress")
-  list.innerHTML=""; status.innerText="Starting..."
+  const list=document.getElementById("autoAddList")
+  const counter=document.getElementById("autoAddCounter")
+  const progress=document.getElementById("autoAddProgress")
+  list.innerHTML=""; counter.innerText="Starting..."
 
-  // Fetch members source
-  const res = await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
-  const members = await res.json()
+  // Fetch source members
+  const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source})})
+  const members=await res.json()
 
+  const batchSize = 5 // parallel 5 accounts
   let done=0
-  for(const m of members){
-    const id = m.username || m.user_id
 
-    const add = await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
-    const result = await add.json()
-
-    const color = result.status==="success"?"success":result.status==="failed"?"failed":"skipped"
-    list.innerHTML += `<li>${id} → <span class="${color}">${result.status}</span></li>`
+  async function addMember(m){
+    const id=m.username||m.user_id
+    const add=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...m,targetGroup:target})})
+    const result=await add.json()
+    const color=result.status==="success"?"success":result.status==="failed"?"failed":"skipped"
+    list.innerHTML+=`<li>${id} → <span class="${color}">${result.status}</span></li>`
     logConsole(`${id} → ${result.status} (${result.accountUsed})`)
-
     done++
-    status.innerText = `${done}/${members.length}`
-    progress.style.width = `${(done/members.length)*100}%`
-
-    if(result.status==="success"){
-      await delayCountdown(20000) // 20s delay
-    }
+    counter.innerText=`${done}/${members.length}`
+    progress.style.width=`${(done/members.length)*100}%`
+    if(result.status==="success") await delayCountdown(5000) // 5s delay per success
   }
+
+  // Parallel batches
+  for(let i=0;i<members.length;i+=batchSize){
+    const batch=members.slice(i,i+batchSize)
+    await Promise.all(batch.map(addMember)) // parallel execution
+  }
+
   stopTimer()
   document.getElementById("delayStatus").innerText="⏳ Delay: 00:00:00"
-  status.innerText = "DONE ✅"
+  counter.innerText="DONE ✅"
 }
-
-// ===== DOWNLOAD =====
 document.getElementById("downloadHistoryBtn").onclick=async()=>{
   const data=await fetch("/history").then(r=>r.json())
   const blob=new Blob([JSON.stringify(data,null,2)])
