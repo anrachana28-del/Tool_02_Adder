@@ -28,6 +28,19 @@ function cleanGroup(g){
   return g.replace("https://t.me/","").replace("@","").replace(/\./g,'_')
 }
 
+// ===== Smart Active Filter =====
+function isActiveUser(user){
+  if(!user.status) return false
+  const s = user.status.className
+
+  return (
+    s === "UserStatusOnline" ||
+    s === "UserStatusRecently"
+    // optional:
+    // || s === "UserStatusLastWeek"
+  )
+}
+
 // ===== Accounts =====
 const accounts = [], clients = {}
 let i = 1
@@ -52,7 +65,12 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
 // ===== Client =====
 async function getClient(acc){
   if(clients[acc.id]) return clients[acc.id]
-  const client = new TelegramClient(new StringSession(acc.session), acc.api_id, acc.api_hash, {connectionRetries:5})
+  const client = new TelegramClient(
+    new StringSession(acc.session),
+    acc.api_id,
+    acc.api_hash,
+    { connectionRetries: 5 }
+  )
   await client.connect()
   clients[acc.id] = client
   return client
@@ -68,7 +86,7 @@ function parseFlood(err){
   return null
 }
 
-// ===== Refresh Flood =====
+// ===== Refresh =====
 async function refreshAccount(acc){
   if(acc.floodWaitUntil && acc.floodWaitUntil < Date.now()){
     acc.floodWaitUntil = null
@@ -80,7 +98,7 @@ async function refreshAccount(acc){
   }
 }
 
-// ===== Check Account =====
+// ===== Check =====
 async function checkTGAccount(acc){
   try{
     await refreshAccount(acc)
@@ -102,8 +120,8 @@ async function checkTGAccount(acc){
 
     if(wait){
       flood = Date.now() + (wait*1000) + BUFFER
-      acc.floodWaitUntil = flood
       acc.status = "floodwait"
+      acc.floodWaitUntil = flood
       status = "floodwait"
     }
 
@@ -128,9 +146,8 @@ async function autoCheck(){
 setInterval(autoCheck,60000)
 autoCheck()
 
-// ===== Rotate Account =====
+// ===== Rotation =====
 let accIndex = 0
-
 function getAvailableAccount(){
   const now = Date.now()
 
@@ -145,7 +162,7 @@ function getAvailableAccount(){
   return null
 }
 
-// ===== Fast Members Fetch =====
+// ===== Fast Fetch =====
 async function fastGetMembers(client, entity){
   let all = []
   let chunk = 200
@@ -165,7 +182,7 @@ async function fastGetMembers(client, entity){
   return all
 }
 
-// ===== Members =====
+// ===== Members (SMART FILTER) =====
 app.post('/members', async(req,res)=>{
   try{
     const {group} = req.body
@@ -183,12 +200,12 @@ app.post('/members', async(req,res)=>{
     const all = await fastGetMembers(client, entity)
 
     const members = all
-      .filter(p=>!p.bot)
-      .map(p=>({
+      .filter(p => !p.bot && isActiveUser(p))
+      .map(p => ({
         user_id:p.id,
         username:p.username,
         access_hash:p.access_hash,
-        avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
+        status:p.status?.className || "unknown"
       }))
 
     res.json(members)
@@ -283,8 +300,8 @@ app.post('/add-member', async(req,res)=>{
 
       if(wait){
         const until = Date.now() + (wait*1000) + BUFFER
-        clientAcc.floodWaitUntil = until
         clientAcc.status = "floodwait"
+        clientAcc.floodWaitUntil = until
 
         await update(ref(db,`accounts/${clientAcc.id}`),{
           status:"floodwait",
@@ -334,9 +351,11 @@ app.get('/account-status', async(req,res)=>{
     const a = data[id]
     if(a.floodWaitUntil){
       const remain = a.floodWaitUntil - now
+
       if(remain <= 0){
         a.status = "active"
         a.floodWaitUntil = null
+
         await update(ref(db,`accounts/${id}`),{
           status:"active",
           floodWaitUntil:null
