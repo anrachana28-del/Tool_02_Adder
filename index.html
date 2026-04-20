@@ -7,201 +7,621 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;}
-body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;padding:0;}
+body{font-family:'JetBrains Mono',monospace;  background: linear-gradient(135deg,#203a43);
+color:#fff;width:100%;}
 .container{max-width:1000px;margin:auto;padding:15px;}
-section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;box-shadow:0 6px 20px rgba(0,0,0,0.6);}
-.card-title{font-size:24px;font-weight:700;margin-bottom:15px;color:#00ff7f;text-align:center;}
-input, select{width:100%;padding:12px;margin-top:10px;border-radius:12px;border:none;background:#11141f;color:#fff;font-size:15px;outline:none;}
-input:focus, select:focus{border:1px solid #00ff7f;}
-button{border:none;padding:12px;border-radius:12px;cursor:pointer;font-size:15px;font-weight:600;background:#00ff7f;color:#0f0f10;transition:0.2s;}
-button:hover{background:#00cc66;color:#fff;}
-button:disabled{background:#ff4c4c;color:#fff;cursor:not-allowed;}
-.btn-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px;}
-.btn-group button{flex:1;background:#11141f;color:#fff;}
-.btn-group button:hover{background:#00ff7f;color:#0f0f10;}
+section{background:linear-gradient(135deg,#047c8ec5,#036158fb);border-radius:20px;padding:20px;margin-bottom:20px;}
+.card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
+input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#353333;color:#fff;border:none;}
+button{width:auto;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
+
+button:hover{opacity:0.85;}
 .success{color:#00ff7f;font-weight:700;}
 .failed{color:#ff4c4c;font-weight:700;}
-.pending{color:#ffcc00;font-weight:700;}
-.skipped{color:#9999ff;font-weight:700;}
-.floodwait{background:#ffcc00;color:#000;font-weight:700;border-radius:6px;animation:blink 1.5s infinite;}
-@keyframes blink{0%,50%,100%{opacity:1;}25%,75%{opacity:0.5;}}
-.avatar{width:28px;height:28px;border-radius:50%;margin-right:8px;}
-ul{list-style:none;padding:0;margin-top:10px;max-height:400px;overflow-y:auto;}
-li{padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;}
-.table-responsive{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;}
-th,td{padding:10px;border-bottom:1px solid rgba(255,255,255,0.1);}
-th{background:#11141f;color:#00ff7f;}
-.page{display:none;}
-.page.active{display:block;}
-.progress-bar{background:#11141f;height:14px;border-radius:10px;margin-top:10px;}
-.progress{background:#00ff7f;height:14px;width:0%;border-radius:10px;transition:width 0.3s;}
-.spinner{text-align:center;margin-top:10px;}
-#autoAddStatus{margin:10px 0;font-weight:700;color:#00ff7f;text-align:center;}
-.countdown{font-weight:700;}
-.green{color:#00ff7f;}
-.yellow{color:#ffcc00;}
-.red{color:#ff4c4c;}
-.console-log{background:#11141f;padding:10px;border-radius:12px;height:200px;overflow-y:auto;font-size:13px;margin-top:10px;}
-#floodAlert{color:red;font-weight:700;margin-top:5px;display:none;}
+.skipped{color:orange;font-weight:700;}
+.avatar{width:25px;height:25px;border-radius:50%;}
+ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;border-radius:10px;margin-top:10px;}
+.console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;margin-top:10px;}
+.progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
+.progress{background:#00ff22;height:10px;width:0%;border-radius:10px;}
+table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;display:block;overflow-x:auto;}
+th,td{padding:5px;border:1px solid #222;text-align:left;}
+th{background:#222;}
+.bar-buttons{display:flex;gap:10px;margin-bottom:15px;width: 50%;}
+.bar-buttons button{flex:1;border-radius:10px;}
+#btnAutoAddPage{background:#666e6a;color: #00ff7f;}
+#btnHistoryPage{background:#5f6263;color: orange;}
+.hidden{display:none;}
+tbody{display:block;max-height:300px;overflow-y:auto;}
+thead, tbody tr{display:table;width:100%;table-layout:fixed;}
+
+/* ===== Mobile Responsive ===== */
+@media screen and (max-width: 768px) {
+  .container {padding:10px;}
+  input, select, button {font-size:14px;padding:8px;}
+  .card-title {font-size:18px;}
+   .bar-buttons button,
+  #autoAddPage button,
+  button.inline-btn {
+    width: 100%;          /* ទទឹងពេញ container */
+    box-sizing: border-box;
+  }
+
+  table, thead, tbody, th, td, tr {display:block;}
+  thead tr {display:none;}
+  tbody tr {margin-bottom:10px;border:1px solid #222;border-radius:10px;padding:5px;background:#111;}
+  tbody td {display:flex;justify-content:space-between;padding:5px;border:none;font-size:13px;}
+  ul {max-height:200px;font-size:13px;}
+  .console {height:120px;font-size:12px;}
+  .progress-bar {height:8px;}
+  .progress {height:8px;}
+}
+  #loadingBarWrapper {
+  width: 100%;
+  height: 8px;
+  background: #111;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 10px;
+  position: relative;
+}
+
+#loadingContainer {
+  width: 100%;
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Bar ទី 1 */
+#loadingBar {
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00ff7f, #00fbff, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00ff7f, 0 0 20px #d9ff00;
+  animation: moveBar1 1.4s ease-in-out infinite;
+}
+
+/* Bar ទី 2 */
+#loadingBar::after {
+  content: "";
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00e6ff, #00ffcc, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00e6ff, 0 0 20px #00ffcc;
+  animation: moveBar2 1.4s ease-in-out infinite;
+}
+
+/* Animation ទី 1 */
+@keyframes moveBar1 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Animation ទី 2 (delay) */
+@keyframes moveBar2 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+#loadingBar::after {
+  animation-delay: 0.7s;
+}
+#statusBar{
+  margin-top:10px;
+  width: 100%;
+  background: linear-gradient(135deg,#9d9797c2,#6e6e62ca);
+  padding:10px 15px;
+  border-radius:12px;
+  text-align:center;
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:0.5px;
+  box-shadow:0 0 10px rgba(119, 137, 2, 0.741);
+}
+
+#statusText{
+  color:#00ff7f;
+  transition: all 0.3s ease;
+}
 </style>
 </head>
 <body>
 <div class="container">
 
-<!-- Navigation -->
-<div class="btn-group">
-<button class="nav-btn" data-page="accountsPage">Accounts</button>
-<button class="nav-btn" data-page="membersPage">Auto Add</button>
-<button class="nav-btn" data-page="uploadPage">Upload</button>
-<button class="nav-btn" data-page="historyPage">History</button>
-</div>
 
-<!-- Accounts -->
-<section id="accountsPage" class="page active">
-<div class="card-title">Accounts Status</div>
-<div class="table-responsive">
-<table>
-<thead>
-<tr>
-<th>ID</th><th>Phone</th><th>Status</th><th>FloodWait</th><th>Last Checked</th>
-</tr>
-</thead>
-<tbody id="accountsTable"></tbody>
-</table>
+
+<!-- ===== Auto Add ===== -->
+<section id="autoAddPage">
+
+  <div class="card-title">Auto Add Members</div>
+  <div class="bar-buttons">
+
+  <button id="btnHistoryPage">History & Accounts</button>
 </div>
+ 
+  <!-- Multi-line textarea for usernames / links -->
+  <textarea id="source" placeholder="Enter multiple @usernames or Telegram links, one per line"
+            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#f4f0f0dd; color:#0015ff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
+
+  <input id="target" placeholder="Target Group" 
+         style="width:100%; padding:10px; border-radius:10px; background:#f4f0f0e7; color:#0015ff; border:none; margin-bottom:10px;">
+
+<button id="start" style="
+  display:block;
+  width:50%;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  color: rgb(248, 255, 250);
+  cursor:pointer;
+    background: linear-gradient(135deg,#ffcc02e7,#05ae73ba);
+  transition: transform 0.1s ease, box-shadow 0.1s ease; /* animation */
+">
+  START
+</button>
+
+  <!-- Loading Bar -->
+  <div id="loadingBarWrapper" class="hidden">
+    <div id="loadingBar"></div>
+  </div>
+
+  <!-- Status & Counter -->
+  <div id="statusBar">
+    <span id="status">Ready</span>
+  </div>
+  
+<div id="summaryBox" style="
+  margin-top:10px;
+  display:flex;
+  gap:15px;
+  font-weight:700;
+  font-size:14px;
+  flex-wrap:wrap;
+  font-size:14px;
+
+">
+  <span class="success" style="color:#00ff7f;">✅ Success: <span id="successCount">0</span></span>
+  <span class="failed" style="color:#ff4c4c;">| ❌ Failed: <span id="failedCount">0</span></span>
+  <span class="skipped" style="color:orange;">| ⏭️ Skipped: <span id="skippedCount">0</span></span>
+  <span class="total" style="color:#00ccff;">| Total: <span id="counter">0</span></span>
+</div>
+  <!-- Progress Bar -->
+  <div class="progress-bar">
+    <div id="progress" class="progress"></div>
+  </div>
+
+  <!-- Members Log & Console -->
+  <ul id="list"></ul>
+  <div class="console" id="console"></div>
 </section>
 
-<!-- Auto Add -->
-<section id="membersPage" class="page">
-<div class="card-title">Auto Add Members</div>
-<label for="accountSelect">Select Account (optional):</label>
-<select id="accountSelect"></select>
-<div id="floodAlert">FloodWait Active 🚫</div>
-<input id="sourceGroupInput" placeholder="Source Group">
-<input id="targetGroupInput" placeholder="Target Group">
-<button id="startAutoAddBtn">Start Auto-Add</button>
-<div id="loading" class="spinner">⏳ Loading Members...</div>
-<div id="autoAddStatus"></div>
-<div id="autoAddCounter">0 / 0</div>
-<div class="progress-bar"><div id="autoAddProgress" class="progress"></div></div>
-<ul id="autoAddList"></ul>
-<div class="console-log" id="autoAddConsole"></div>
+<!-- ===== History & Accounts ===== -->
+<section id="historyPage" class="hidden">
+  <div class="card-title">Accounts Status</div>
+  <button onclick="logout()">Logout</button>
+  <div class="bar-buttons">
+  <button id="btnAutoAddPage">Auto Add Members</button>
+</div>
+<table id="accountTable">
+  <thead>
+    <tr>
+      <th>Phone</th>
+      <th>Status</th>
+      <th>FloodWait Until</th>
+      <th>Last Checked</th>
+      <th>Add Count</th>
+    </tr>
+  </thead>
+  <tbody id="accountBody"></tbody>
+</table>
+<button id="refreshAccounts">Refresh Accounts</button>
+
+<div class="card-title">History</div>
+<!-- ===== History Summary ===== -->
+<div id="historySummary" style="
+  margin-top:10px;
+  display:flex;
+  gap:15px;
+  font-weight:700;
+  font-size:14px;
+  flex-wrap:wrap;
+">
+  <span id="historySuccess" style="color:#00ff7f">✅ Success: 0</span>
+  <span id="historyFailed" style="color:#ff4c4c">| ❌ Failed: 0</span>
+  <span id="historySkipped" style="color:orange">| ⏭️ Skipped: 0</span>
+  <span id="historyTotal" style="color:#00ccff">| Total: 0</span>
+</div>
+<table id="historyTable">
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Status</th>
+      <th>Reason</th>
+      <th>Account</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+  <tbody id="historyBody"></tbody>
+</table>
+<button id="refreshHistory">Refresh History</button>
 </section>
 
 <script>
-// ===== Navigation =====
-document.querySelectorAll(".nav-btn").forEach(btn=>{
-  btn.onclick=()=>{document.querySelectorAll(".page").forEach(p=>p.classList.remove("active")); document.getElementById(btn.dataset.page).classList.add("active");}
-});
+const autoAddPage=document.getElementById("autoAddPage")
+const historyPage=document.getElementById("historyPage")
+document.getElementById("btnAutoAddPage").onclick=()=>{autoAddPage.classList.remove("hidden");historyPage.classList.add("hidden")}
+document.getElementById("btnHistoryPage").onclick=()=>{historyPage.classList.remove("hidden");autoAddPage.classList.add("hidden")}
 
-// ===== Console Log =====
-function logConsole(msg){
-  autoAddConsole.innerHTML += msg + "<br>";
-  autoAddConsole.scrollTop = autoAddConsole.scrollHeight;
+// ===== Live History =====
+const historyBody=document.getElementById("historyBody")
+let historySet=new Set()
+
+async function loadHistory(){
+  const res = await fetch("/history")
+  const data = await res.json()
+  historyBody.innerHTML = ""
+  historySet.clear()
+
+  // ===== summary counters =====
+  let success = 0, failed = 0, skipped = 0, total = 0
+
+  Object.values(data).forEach(h=>{
+    const tr=document.createElement("tr")
+    tr.innerHTML=`<td>${h.username||h.user_id}</td>
+      <td class="${h.status==="success"?"success":(h.status==="failed"?"failed":"skipped")}">${h.status}</td>
+      <td>${h.reason}</td>
+      <td>${h.accountUsed||"-"}</td>
+      <td>${new Date(h.timestamp).toLocaleString()}</td>`
+    historyBody.appendChild(tr)
+    if(h.user_id) historySet.add(h.user_id)
+    else if(h.username) historySet.add(h.username)
+
+    // ===== count summary =====
+    if(h.status==="success") success++
+    else if(h.status==="failed") failed++
+    else skipped++
+    total++
+  })
+
+  // ===== update summary UI =====
+  document.getElementById("historySuccess").innerText = `✅ Success: ${success}`
+  document.getElementById("historyFailed").innerText = `❌ Failed: ${failed}`
+  document.getElementById("historySkipped").innerText = `⏭️ Skipped: ${skipped}`
+  document.getElementById("historyTotal").innerText = `🧮 Total: ${total}`
+}
+document.getElementById("refreshHistory").onclick=loadHistory
+setInterval(loadHistory,5000)
+
+// ===== Accounts Table =====
+const accountBody=document.getElementById("accountBody")
+async function loadAccounts(){
+  const res=await fetch("/account-status")
+  const data=await res.json()
+  accountBody.innerHTML=""
+  Object.values(data).forEach(a=>{
+    const tr=document.createElement("tr")
+    tr.innerHTML=`<td>${a.phone}</td>
+      <td class="${a.status==="active"?"success":(a.status==="floodwait"?"skipped":"failed")}">${a.status}</td>
+      <td>${a.floodWaitUntil?a.floodWaitUntil?new Date(a.floodWaitUntil).toLocaleString():"-" : "-"}</td>
+      <td>${a.lastChecked?a.lastChecked?new Date(a.lastChecked).toLocaleString():"-" : "-"}</td>
+      <td>${a.addCount||0}</td>`
+    accountBody.appendChild(tr)
+  })
+}
+document.getElementById("refreshAccounts").onclick=loadAccounts
+setInterval(loadAccounts,5000)
+
+// ===== Auto Add =====
+const startBtn=document.getElementById("start")
+const status=document.getElementById("status")
+const counter=document.getElementById("counter")
+const progress=document.getElementById("progress")
+const list=document.getElementById("list")
+const consoleBox=document.getElementById("console")
+let offset=0,total=0,accIndex=0
+
+// ===== Variables Summary =====
+let successCount = 0;
+let failedCount = 0;
+let skippedCount = 0;
+
+function log(msg,user_id=null,color=null){
+    const li=document.createElement("li")
+    li.innerHTML=msg
+    if(color) li.style.color=color
+    list.appendChild(li)
+    list.scrollTop=list.scrollHeight
+    consoleBox.innerHTML+=msg+"<br>"
+    consoleBox.scrollTop=consoleBox.scrollHeight
+    if(user_id) historySet.add(user_id)
 }
 
-// ===== Auto Add Members 10 per batch with countdown =====
-const startAutoAddBtn=document.getElementById("startAutoAddBtn"),
-      autoAddList=document.getElementById("autoAddList"),
-      counter=document.getElementById("autoAddCounter"),
-      progress=document.getElementById("autoAddProgress"),
-      autoAddStatus=document.getElementById("autoAddStatus"),
-      loading=document.getElementById("loading"),
-      autoAddConsole=document.getElementById("autoAddConsole"),
-      sourceGroupInput=document.getElementById("sourceGroupInput"),
-      targetGroupInput=document.getElementById("targetGroupInput");
-
-startAutoAddBtn.onclick=async()=>{
-  const source=sourceGroupInput.value.trim(), target=targetGroupInput.value.trim();
-  if(!source||!target) return alert("Enter groups");
-  loading.style.display="block"; autoAddStatus.innerText="Fetching members..."; autoAddConsole.innerHTML="";
-  
-  // ===== Fetch ALL members =====
-  let allMembers=[], offset=0, limit=100;
-  while(true){
-    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source, offset, limit})});
-    const data=await res.json();
-    if(data.error){ alert(data.error); loading.style.display="none"; return; }
-    allMembers = allMembers.concat(data.members);
-    if(!data.hasMore) break;
-    offset = data.nextOffset;
+async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
+function nextAccount(data,startIndex){
+  const now=Date.now()
+  const keys=Object.keys(data)
+  for(let i=0;i<keys.length;i++){
+    let idx=(startIndex+i)%keys.length
+    let acc=data[keys[idx]]
+    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)) return {id:keys[idx], index:idx}
   }
-  loading.style.display="none";
+  return null
+}
 
-  // ===== Accounts =====
-  const accRes=await fetch("/account-status"); const accData=await accRes.json();
-  let accountsList=Object.keys(accData); let accIndex=0;
-  const histRes=await fetch("/history"); const histData=await histRes.json(); const histList = Object.values(histData||{});
+async function autoJoinAllAccounts(group) {
+  const accounts = await getAccounts();
 
-  let processed=0;
-  autoAddList.innerHTML=""; counter.innerText=`0 / ${allMembers.length}`; progress.style.width=`0%`;
+  for (const key of Object.keys(accounts)) {
+    const acc = accounts[key];
+    if (acc.status !== "active") continue;
 
-  function getNextAvailableAccount(startIndex){
-    const now = Date.now();
-    for(let i=0;i<accountsList.length;i++){
-      let idx = (startIndex + i) % accountsList.length;
-      const acc = accData[accountsList[idx]];
-      if(acc.status === "active" && (!acc.floodWaitUntil || acc.floodWaitUntil <= now)){
-        return idx;
-      }
-    }
-    return -1;
-  }
+    try {
+      const res = await fetch("/auto-join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group, account: key })
+      });
 
-  // ===== Batch Add 10 members at a time =====
-  let batchSize=10;
-  for(let i=0;i<allMembers.length;i+=batchSize){
-    const batch = allMembers.slice(i, i+batchSize);
-    autoAddStatus.innerText=`Adding batch ${Math.floor(i/batchSize)+1} / ${Math.ceil(allMembers.length/batchSize)}...`;
-
-    for(const m of batch){
-      const nowTime = new Date().toLocaleTimeString('en-US',{timeZone:'Asia/Phnom_Penh',hour12:true});
-      const alreadyHistory = histList.some(h => (h.username===m.username || h.user_id===m.user_id) && h.status==="success");
-      if(alreadyHistory){
-        logConsole(`[SKIP ${nowTime}] ${m.username||m.user_id} already in history`);
-        processed++; counter.innerText=`${processed} / ${allMembers.length}`; progress.style.width=`${Math.floor((processed/allMembers.length)*100)}%`;
+      if (!res.ok) {
+        log(`❌ ${acc.phone || acc.id} failed to join ${group} | Status: ${res.status}`, null, "red");
         continue;
       }
 
-      let nextAccIdx=getNextAvailableAccount(accIndex);
-      if(nextAccIdx===-1){ 
-          autoAddStatus.innerText="All accounts FloodWait. Waiting..."; 
-          await new Promise(r=>setTimeout(r,5000)); 
-          nextAccIdx=getNextAvailableAccount(accIndex); 
-          if(nextAccIdx===-1) break; 
+      // Try parsing JSON safely
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        log(`❌ ${acc.phone || acc.id} returned invalid JSON`, null, "red");
+        continue;
       }
-      accIndex=nextAccIdx;
-      const currentAccount=accountsList[accIndex];
 
-      logConsole(`[INFO ${nowTime}] Using account: ${currentAccount} for ${m.username||m.user_id}`);
+      if (data.error) {
+        log(`❌ ${acc.phone || acc.id} failed: ${data.error}`, null, "red");
+      } else {
+        log(`✅ ${acc.phone || acc.id} joined ${group}`);
+      }
 
-      const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})});
-      const result=await addRes.json();
+      // small delay between accounts to reduce rate limit issues
+      await new Promise(r => setTimeout(r, 500));
 
-      const li=document.createElement("li");
-      li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="${result.status==='success'?'success':result.status==='skipped'?'skipped':'failed'}">${result.status}</span> by ${result.accountUsed} <span class="pending">[${nowTime}]</span><br><span class="pending">Reason: ${result.reason||'N/A'}</span>`;
-      autoAddList.appendChild(li); autoAddList.scrollTop=autoAddList.scrollHeight;
-
-      processed++; counter.innerText=`${processed} / ${allMembers.length}`; progress.style.width=`${Math.floor((processed/allMembers.length)*100)}%`;
-
-      if(result.status==="success") accIndex=(accIndex+1)%accountsList.length;
+    } catch (e) {
+      log(`❌ ${acc.phone || acc.id} failed: ${e.message}`, null, "red");
     }
+  }
+}
 
-    // ===== Countdown before next batch =====
-    if(i+batchSize<allMembers.length){
-      let countdown = 10; // 10 seconds between batches
-      autoAddStatus.innerText=`Waiting ${countdown}s before next batch...`;
-      while(countdown>0){
-        await new Promise(r=>setTimeout(r,1000));
-        countdown--;
-        autoAddStatus.innerText=`Waiting ${countdown}s before next batch...`;
+const loadingBarWrapper = document.getElementById("loadingBarWrapper")
+
+startBtn.onclick = async () => {
+  const sourceValue = document.getElementById("source").value.trim()
+  const target = document.getElementById("target").value.trim()
+
+  if (!sourceValue || !target) return alert("Enter usernames / links and target group")
+
+  await loadHistory()
+
+  offset = 0
+  total = 0
+  accIndex = 0
+
+  successCount = 0
+  failedCount = 0
+  skippedCount = 0
+
+  list.innerHTML = ""
+  consoleBox.innerHTML = ""
+
+  loadingBarWrapper.classList.remove("hidden")
+let totalUsers = 0
+  // 🔥 Detect group mode (single t.me link only)
+  let isGroupMode = sourceValue.includes("t.me/") && !sourceValue.includes("\n")
+
+  // ===== Normalize =====
+  function normalizeInput(u) {
+    u = u.trim()
+    if (u.includes("t.me/")) u = u.split("/").pop()
+    if (u.startsWith("@")) u = u.slice(1)
+    return u
+  }
+
+  function updateSummary(type) {
+    if (type === "success") successCount++
+    else if (type === "failed") failedCount++
+    else skippedCount++
+
+    document.getElementById("successCount").innerText = successCount
+    document.getElementById("failedCount").innerText = failedCount
+    document.getElementById("skippedCount").innerText = skippedCount
+  }
+
+  function processResult(type) {
+    updateSummary(type)
+    total++
+    counter.innerText = total
+    progress.style.width = totalUsers ? ((total / totalUsers) * 100) + "%" : "0%"
+  }
+
+  let accounts = await getAccounts()
+
+  function getNextAccount() {
+    const keys = Object.keys(accounts)
+    const now = Date.now()
+    for (let i = 0; i < keys.length; i++) {
+      let idx = (accIndex + i) % keys.length
+      let acc = accounts[keys[idx]]
+      if (acc.status === "active" && (!acc.floodWaitUntil || acc.floodWaitUntil < now)) {
+        return { acc, index: idx }
+      }
+    }
+    return null
+  }
+
+  // ===== ADD WITH ROTATION =====
+  async function addWithRotation(member) {
+    const userKey = member.username || member.user_id
+    let added = false
+
+    while (!added) {
+      accounts = await getAccounts()
+      let accObj = getNextAccount()
+
+      if (!accObj) {
+        let nextTimes = Object.values(accounts).filter(a => a.floodWaitUntil).map(a => a.floodWaitUntil)
+        let nextTime = nextTimes.length ? Math.min(...nextTimes) : Date.now() + 60000
+        let waitMs = nextTime - Date.now()
+        let timeStr = new Date(nextTime).toLocaleString('en-US', { hour12: true })
+
+        status.innerText = `⚠️ All accounts Flood wait → ${timeStr}`
+        log(`⚠️ All accounts Flood wait → ${timeStr}`, userKey, "red")
+        await new Promise(r => setTimeout(r, waitMs))
+        continue
+      }
+
+      let acc = accObj.acc
+      accIndex = accObj.index
+
+      status.innerText = `Adding: ${userKey}`
+      log(`🔹 Using ${acc.phone || acc.id} → ${userKey}`, userKey, "cyan")
+
+      try {
+       const res = await fetch("/add-member", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(member)
+})
+
+if (!res.ok) {
+  throw new Error(`Server ${res.status}`)
+}
+
+        const data = await res.json()
+        const result = Array.isArray(data) ? data[0] : data
+
+        if (result.status === "success") {
+          log(`✅ ${userKey} → SUCCESS`, userKey, "lime")
+          processResult("success")
+          await countdown(20, "Next account delay")
+          accIndex = (accIndex + 1) % Object.keys(accounts).length
+          added = true
+
+        } else if (result.reason && result.reason.toLowerCase().includes("flood")) {
+          let match = result.reason.match(/(\d+)/)
+          let waitSec = match ? Number(match[1]) : 60
+          acc.floodWaitUntil = Date.now() + waitSec * 1000
+          acc.status = "floodwait"
+          let timeStr = new Date(acc.floodWaitUntil).toLocaleString('en-US', { hour12: true })
+          log(`⚠️ ${acc.phone || acc.id} Flood → ${timeStr}`, userKey, "orange")
+          accIndex = (accIndex + 1) % Object.keys(accounts).length
+
+        } else {
+          log(`❌ ${userKey} → FAILED (${result.reason})`, userKey, "red")
+          processResult("failed")
+          accIndex = (accIndex + 1) % Object.keys(accounts).length
+          added = true
+        }
+
+      } catch (err) {
+        log(`❌ Error: ${err.message}`, userKey, "red")
+        processResult("failed")
+        accIndex = (accIndex + 1) % Object.keys(accounts).length
+        added = true
       }
     }
   }
 
-  autoAddStatus.innerText="Auto Add Finished! ✅"; alert("Auto Add Finished");
-};
+  // ===============================
+  // GROUP MODE
+  // ===============================
+  if (isGroupMode) {
+    status.innerText = "Joining source group..."
+    await autoJoinAllAccounts(sourceValue)
+
+    status.innerText = "Joining target group..."
+    await autoJoinAllAccounts(target)
+
+    while (true) {
+      status.innerText = "Fetching members..."
+      const res = await fetch("/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group: sourceValue, offset, limit: 50 })
+      })
+
+      const data = await res.json()
+      if (data.error) break
+
+      const members = data.members || []
+      totalUsers += members.length
+      if (!members.length) break
+      offset = data.nextOffset
+
+      for (const m of members) {
+        const userKey = m.user_id || m.username
+        if (historySet.has(userKey)) {
+          log(`⏭️ Skipped ${userKey}`, userKey, "orange")
+          processResult("skipped")
+          continue
+        }
+        await addWithRotation({
+          username: m.username,
+          user_id: m.user_id,
+          access_hash: m.access_hash,
+          targetGroup: target
+        })
+      }
+    }
+  }
+
+  // ===============================
+  // TEXT MODE
+  // ===============================
+  else {
+    status.innerText = "Joining target group..."
+    await autoJoinAllAccounts(target)
+
+    const userList = sourceValue.split("\n").map(u => normalizeInput(u)).filter(Boolean)
+    totalUsers = userList.length
+
+    for (const u of userList) {
+      if (historySet.has(u)) {
+        log(`⏭️ Skipped ${u}`, u, "orange")
+        processResult("skipped")
+        continue
+      }
+      await addWithRotation({ username: u, targetGroup: target })
+    }
+  }
+
+  loadingBarWrapper.classList.add("hidden")
+  status.innerText = "Finished ✅"
+}
+// ===== Countdown Function =====
+async function countdown(seconds, message) {
+  for (let i = seconds; i > 0; i--) {
+    status.innerText = `${message}: ${i}s`
+    await new Promise(r => setTimeout(r, 1000))
+  }
+}
+
+
 </script>
+</div>
 </body>
 </html>
