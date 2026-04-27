@@ -23,24 +23,27 @@ const db = getDatabase()
 // ===== Accounts =====
 const accounts = []
 const clients = {}
+setInterval(async () => {
+  for (const id in clients) {
+    try {
+      const client = clients[id]
 
+      if (!client.connected) {
+        console.log(`🧹 Remove ${id}`)
+        await client.disconnect()
+        delete clients[id]
+      }
+    } catch {
+      delete clients[id]
+    }
+  }
+}, 5 * 60 * 1000)
 // ===== Normalize Username =====
 function normalizeUsername(input){
   if(!input) return null
-
   let u = input.trim()
-
-  // Remove t.me/ prefix
-  if(u.includes("t.me/")) {
-    u = u.split("/").pop()
-  }
-
-  // Remove leading @ (optional, depends on usage)
-  if(u.startsWith("@")) {
-    u = u.slice(1)
-  }
-
-  return u
+  if(u.includes("t.me/")) u = u.split("/").pop()
+  return u.replace("@","").trim()
 }
 
 // ===== Normalize Group =====
@@ -246,7 +249,11 @@ async function refreshAccountStatus(account){
 async function checkTGAccount(account){
   try{
     await refreshAccountStatus(account)
-    const client=await getClient(account)
+
+    // 👉 reuse client if exists
+    const client = await getClient(account)
+    if(!client) throw new Error("No client")
+
     await client.getMe()
 
     account.status="active"
@@ -258,6 +265,7 @@ async function checkTGAccount(account){
       lastChecked:account.lastChecked,
       floodWaitUntil:null
     })
+
   }catch(err){
     const wait=parseFlood(err)
     let status="error", floodUntil=null
@@ -281,15 +289,40 @@ async function checkTGAccount(account){
 }
 
 // ===== Auto Check =====
-async function autoCheck(){
-  for(const acc of accounts){
-    await refreshAccountStatus(acc)
+let isChecking = false
+let index = 0
+
+async function autoCheck() {
+  if (isChecking) return
+  isChecking = true
+
+  try {
+    if (!accounts.length) return
+
+    const acc = accounts[index % accounts.length]
+    index++
+
+    if (!acc) return
+
+    // 👉 only check if needed
+    if (acc.status === "active" && !acc.floodWaitUntil) {
+      await sleep(3000)
+      return
+    }
+
     await checkTGAccount(acc)
-    await sleep(2000)
+
+    await sleep(8000)
+
+  } catch (err) {
+    console.log("autoCheck error:", err.message)
+  } finally {
+    isChecking = false
   }
 }
-setInterval(autoCheck,60000)
-autoCheck()
+
+// 👉 slower interval (IMPORTANT)
+setInterval(autoCheck, 10 * 60 * 1000)
 
 // ===== Get Available Account =====
 let accIndex = 0
@@ -297,72 +330,34 @@ let accIndex = 0
 function getAvailableAccount(){
   const now = Date.now()
 
-  for(let i=0; i<accounts.length; i++){
-    let idx = (accIndex + i) % accounts.length
-    let acc = accounts[idx]
+  const available = accounts.filter(acc =>
+    acc.status === "active" &&
+    (!acc.floodWaitUntil || acc.floodWaitUntil < now)
+  )
 
-    if(
-      acc.status === "active" &&
-      acc.status !== "error" &&
-      (!acc.floodWaitUntil || acc.floodWaitUntil < now)
-    ){
-      accIndex = idx + 1 // 🔥 switch next account
-      return acc
-    }
-  }
+  if(!available.length) return null
 
-  return null // ❌ no account available
+  const acc = available[accIndex % available.length]
+  accIndex++
+
+  return acc
 }
 
 // ===== Auto Join =====
-async function autoJoin(client, group) {
-  const clean = normalizeGroup(group);
+async function autoJoin(client, group){
+  const clean = normalizeGroup(group)
 
-  try {
-    // ព្យាយាម get entity ដំបូង
-    await client.getEntity(clean);
-  } catch (err) {
-    try {
-      // បើជា invite link
-      if (group.includes("joinchat") || group.includes("+")) {
-        const hash = group.split("/").pop().replace("+", "");
-        await client.invoke(new Api.messages.ImportChatInvite({ hash }));
-      } else {
-        // បើជា public channel/group
-        await client.invoke(new Api.channels.JoinChannel({ channel: clean }));
-      }
-    } catch (e) {
-      console.log(`Failed to join ${group}:`, e.message);
-    }
+  try{
+    await client.getEntity(clean)
+  }catch{
+    try{
+      await client.invoke(
+        new Api.messages.ImportChatInvite({hash:clean})
+      )
+    }catch(e){}
   }
 }
-// ===== Auto Join Route =====
-app.post('/auto-join', async (req, res) => {
-  try {
-    const { group } = req.body;
-    if (!group) return res.status(400).json({ error: "Missing group" });
 
-    let joinedCount = 0;
-
-    for (const acc of accounts) {
-      const client = await getClient(acc);
-      if (!client) continue; // skip unavailable accounts
-
-      try {
-        await autoJoin(client, group);
-        joinedCount++;
-        await sleep(1000);
-      } catch (e) {
-        console.log(`Failed for ${acc.phone}: ${e.message}`);
-      }
-    }
-
-    res.json({ success: true, joinedCount });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
 // ===== Auto Join All =====
 async function autoJoinAllAccounts(group){
   for(const acc of accounts){
@@ -377,22 +372,45 @@ async function autoJoinAllAccounts(group){
 // ===== Get Members =====
 app.post('/members', async (req, res) => {
   try {
-    let { group, offset = 0, limit = 50 } = req.body
+    let { group, offset = 0, limit = 200 } = req.body
+
+    // 🔒 កំណត់ limit អតិបរមា
+    limit = Math.min(limit, 200)
 
     const acc = getAvailableAccount()
-    if (!acc) return res.json({ error: "No active account" })
+    if (!acc) {
+      return res.json({ error: "No active account" })
+    }
 
     const client = await getClient(acc)
+    if (!client) {
+      return res.json({ error: "Client failed" })
+    }
+
     const cleanGroup = normalizeGroup(group)
 
+    // 👉 auto join
     await autoJoin(client, cleanGroup)
 
     const entity = await client.getEntity(cleanGroup)
 
-    const participants = await client.getParticipants(entity, {
-      offset,
-      limit
-    })
+    // ⏱️ delay បន្តិច កាត់បន្ថយ flood
+    await sleep(1500)
+
+    // 🔁 retry system (ការពារ error)
+    let participants = []
+    for (let i = 0; i < 3; i++) {
+      try {
+        participants = await client.getParticipants(entity, {
+          offset,
+          limit,
+          aggressive: true // ⚡ លឿន
+        })
+        break
+      } catch (e) {
+        await sleep(2000)
+      }
+    }
 
     const members = participants
       .filter(p => !p.bot)
@@ -402,190 +420,227 @@ app.post('/members', async (req, res) => {
         access_hash: p.access_hash
       }))
 
-    res.json({
+    return res.json({
       members,
       nextOffset: offset + participants.length,
       hasMore: participants.length === limit
     })
 
   } catch (err) {
-    res.json({ error: err.message })
+    return res.json({ error: err.message })
   }
 })
 
 // ===== Add Member =====
 app.post('/add-member', async (req, res) => {
   try {
-    let { username, user_id, access_hash, targetGroup } = req.body;
+    let { username, user_id, access_hash, targetGroup } = req.body
 
-    const usernames = username
-      ? username.split("\n").map(u => u.trim()).filter(Boolean)
-      : [];
-
-    if (usernames.length === 0 && !user_id) {
+    // ================= VALIDATION =================
+    if (!username && !user_id) {
       return res.json({
         status: "failed",
         reason: "Missing username or user_id",
         accountUsed: "none"
-      });
+      })
     }
 
-    function normalizeUsername(u) {
-      u = u.trim();
-      if (u.includes("t.me/")) u = u.split("/").pop();
-      if (u.startsWith("@")) u = u.slice(1);
-      return u;
+    const acc = getAvailableAccount()
+    if (!acc) {
+      return res.json({
+        status: "failed",
+        reason: "No available account (FloodWait)",
+        accountUsed: "none"
+      })
     }
 
-    const results = [];
+    const client = await getClient(acc)
 
-    for (const u of usernames) {
-      const cleanUsername = normalizeUsername(u);
+    // ================= GROUP RESOLVE =================
+    let groupEntity
+    try {
+      groupEntity = await client.getEntity(targetGroup)
+    } catch {
+      return res.json({
+        status: "failed",
+        reason: "Invalid target group",
+        accountUsed: acc.phone
+      })
+    }
 
-      if (!cleanUsername) {
-        results.push({ input: u, status: "failed", reason: "Empty username", accountUsed: "none" });
-        continue;
+    // ================= USER RESOLVE =================
+    const cleanUsername = normalizeUsername(username)
+
+    let userEntity
+    try {
+      if (cleanUsername) {
+        userEntity = await client.getEntity(cleanUsername)
+      } else {
+        userEntity = new Api.InputUser({
+          userId: user_id,
+          accessHash: BigInt(access_hash)
+        })
+      }
+    } catch {
+      return res.json({
+        status: "skipped",
+        reason: "User not found / private",
+        accountUsed: acc.phone
+      })
+    }
+
+    // ================= CHECK EXISTING =================
+    try {
+      await client.getParticipant(groupEntity, userEntity)
+
+      return res.json({
+        status: "skipped",
+        reason: "Already in group",
+        accountUsed: acc.phone
+      })
+    } catch {}
+
+    // ================= INVITE =================
+    try {
+      await client.invoke(new Api.channels.InviteToChannel({
+        channel: groupEntity,
+        users: [userEntity]
+      }))
+    } catch (err) {
+      const wait = parseFlood(err)
+
+      if (wait) {
+        const until = Date.now() + wait * 1000
+
+        acc.status = "floodwait"
+        acc.floodWaitUntil = until
+
+        await update(ref(db, `accounts/${acc.id}`), {
+          status: "floodwait",
+          floodWaitUntil: until
+        })
+
+        return res.json({
+          status: "floodwait",
+          reason: `FloodWait ${wait}s`,
+          accountUsed: acc.phone
+        })
       }
 
-      const acc = getAvailableAccount();
-      if (!acc) {
-        results.push({ input: u, status: "failed", reason: "All accounts FloodWait", accountUsed: "none" });
-        continue;
-      }
+      return res.json({
+        status: "failed",
+        reason: err.message,
+        accountUsed: acc.phone
+      })
+    }
 
-      const client = await getClient(acc);
+    // ================= PRO VERIFY ENGINE =================
+    await sleep(7000)
 
-      // 🔥 Auto join target group first
-      await autoJoin(client, targetGroup);
+    let joined = false
 
-      let status = "failed",
-          reason = "unknown",
-          saveHistory = false;
+    // 1. PRIMARY CHECK
+    try {
+      await client.getParticipant(groupEntity, userEntity)
+      joined = true
+    } catch {}
 
-      try {
-        const userEntity = await client.getEntity(cleanUsername);
-        const groupEntity = await client.getEntity(targetGroup);
+    // 2. RETRY CHECK
+    if (!joined) {
+      for (let i = 0; i < 3; i++) {
+        await sleep(3000)
 
-        // ===== Check Already Member =====
-        let alreadyMember = false;
         try {
-          await client.getParticipant(groupEntity, userEntity);
-          alreadyMember = true;
+          await client.getParticipant(groupEntity, userEntity)
+          joined = true
+          break
         } catch {}
-
-        if (alreadyMember) {
-          status = "success";
-          reason = "already in group";
-          saveHistory = true;
-
-          results.push({
-            input: u,
-            status,
-            reason,
-            accountUsed: acc.phone || acc.id
-          });
-
-          continue; // skip invite
-        }
-
-        // ===== Invite User =====
-        await client.invoke(new Api.channels.InviteToChannel({
-          channel: groupEntity,
-          users: [userEntity]
-        }));
-
-        await sleep(5000); // wait Telegram sync
-
-        // ===== Verify Join =====
-        let isMember = false;
-        for (let i = 0; i < 3; i++) {
-          try {
-            const participant = await client.getParticipant(groupEntity, userEntity);
-            if (participant) {
-              isMember = true;
-              break;
-            }
-          } catch (e) {
-            if (e.message.includes("USER_NOT_PARTICIPANT") || e.message.includes("PARTICIPANT_ID_INVALID")) {
-              isMember = false;
-            } else {
-              isMember = true; // fallback
-              break;
-            }
-          }
-          await sleep(2000);
-        }
-
-        if (isMember) {
-          status = "success";
-          reason = "joined (verified)";
-        } else {
-          status = "success";
-          reason = "joined (no verify but likely)";
-        }
-
-        saveHistory = true;
-
-        if (status === "success") {
-          acc.addCount = (acc.addCount || 0) + 1;
-          await update(ref(db, `accounts/${acc.id}`), {
-            addCount: acc.addCount
-          });
-        }
-
-      } catch (err) {
-        // ===== Flood Wait =====
-        const wait = parseFlood(err);
-        if (wait) {
-          const until = Date.now() + wait * 1000;
-          acc.floodWaitUntil = until;
-          acc.status = "floodwait";
-
-          await update(ref(db, `accounts/${acc.id}`), {
-            status: "floodwait",
-            floodWaitUntil: until
-          });
-
-          status = "failed";
-          reason = `FloodWait ${wait}s`;
-          saveHistory = true;
-        } else {
-          status = "failed";
-          reason = err.message;
-        }
       }
-
-      // ===== Save History =====
-      if (saveHistory) {
-        await push(ref(db, 'history'), {
-          username: cleanUsername,
-          status,
-          reason,
-          accountUsed: acc.phone || acc.id,
-          timestamp: Date.now()
-        });
-      }
-
-      results.push({
-        input: u,
-        status,
-        reason,
-        accountUsed: acc.phone || acc.id
-      });
-
-      await sleep(2000); // delay next member
     }
 
-    res.json(results);
+    // 3. BACKUP CHECK
+    if (!joined && user_id) {
+      try {
+        const list = await client.getParticipants(groupEntity, {
+          limit: 200
+        })
+
+        joined = list.some(p => p.id == user_id)
+      } catch {}
+    }
+
+    // ================= RESULT =================
+    if (joined) {
+      acc.addCount = (acc.addCount || 0) + 1
+
+      await update(ref(db, `accounts/${acc.id}`), {
+        addCount: acc.addCount
+      })
+
+      await push(ref(db, 'history'), {
+        username: cleanUsername || username,
+        user_id,
+        status: "success",
+        reason: "joined (verified)",
+        accountUsed: acc.phone,
+        timestamp: Date.now()
+      })
+
+      await sleep(20000 + Math.floor(Math.random() * 10000))
+
+      return res.json({
+        status: "success",
+        reason: "joined (verified)",
+        accountUsed: acc.phone
+      })
+    }
+
+    return res.json({
+      status: "failed",
+      reason: "invite sent but not confirmed",
+      accountUsed: acc.phone
+    })
 
   } catch (err) {
-    res.json({
+    return res.json({
       status: "failed",
       reason: err.message,
       accountUsed: "unknown"
-    });
+    })
   }
-});
+})
+app.post('/auto-join', async (req, res) => {
+  try {
+    const { group, account } = req.body
+
+    const acc = accounts.find(a => a.id === account)
+    if (!acc) {
+      return res.status(404).json({ error: "Account not found" })
+    }
+
+    const client = await getClient(acc)
+
+    const clean = normalizeGroup(group)
+
+    try {
+      await client.getEntity(clean)
+    } catch {
+      await client.invoke(
+        new Api.messages.ImportChatInvite({ hash: clean })
+      )
+    }
+
+    return res.json({
+      status: "joined",
+      account: acc.phone
+    })
+
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message
+    })
+  }
+})
 // ===== Status APIs =====
 app.get('/account-status', async(req,res)=>{
   const snap=await get(ref(db,'accounts'))
