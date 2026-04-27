@@ -364,46 +364,16 @@ function nextAccount(data,startIndex){
   return null
 }
 
-async function autoJoinAllAccounts(group) {
-  const accounts = await getAccounts();
-
-  for (const key of Object.keys(accounts)) {
-    const acc = accounts[key];
-    if (acc.status !== "active") continue;
-
-    try {
-      const res = await fetch("/auto-join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ group, account: key })
-      });
-
-      if (!res.ok) {
-        log(`❌ ${acc.phone || acc.id} failed to join ${group} | Status: ${res.status}`, null, "red");
-        continue;
-      }
-
-      // Try parsing JSON safely
-      let data;
-      try {
-        data = await res.json();
-      } catch (jsonErr) {
-        log(`❌ ${acc.phone || acc.id} returned invalid JSON`, null, "red");
-        continue;
-      }
-
-      if (data.error) {
-        log(`❌ ${acc.phone || acc.id} failed: ${data.error}`, null, "red");
-      } else {
-        log(`✅ ${acc.phone || acc.id} joined ${group}`);
-      }
-
-      // small delay between accounts to reduce rate limit issues
-      await new Promise(r => setTimeout(r, 500));
-
-    } catch (e) {
-      log(`❌ ${acc.phone || acc.id} failed: ${e.message}`, null, "red");
-    }
+async function autoJoinAllAccounts(group){
+  const accounts=await getAccounts()
+  for(const key of Object.keys(accounts)){
+    const acc=accounts[key]
+    if(acc.status!=="active") continue
+    try{
+      await fetch("/auto-join",{method:"POST",headers:{"Content-Type":"application/json"},body: JSON.stringify({group,account:key})})
+      log(`✅ ${acc.phone||acc.id} joined ${group}`)
+      await new Promise(r=>setTimeout(r,500))
+    }catch(e){ log(`❌ ${acc.phone||acc.id} failed: ${e.message}`) }
   }
 }
 
@@ -413,59 +383,49 @@ startBtn.onclick = async () => {
   const sourceValue = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
 
-  if (!sourceValue || !target) return alert("Enter usernames / links and target group")
+  if (!sourceValue || !target)
+    return alert("Enter usernames / links and target group")
 
   await loadHistory()
 
   offset = 0
   total = 0
   accIndex = 0
-
-  successCount = 0
-  failedCount = 0
-  skippedCount = 0
-
   list.innerHTML = ""
   consoleBox.innerHTML = ""
-
   loadingBarWrapper.classList.remove("hidden")
-let totalUsers = 0
-  // 🔥 Detect group mode (single t.me link only)
+
   let isGroupMode = sourceValue.includes("t.me/") && !sourceValue.includes("\n")
 
-  // ===== Normalize =====
-  function normalizeInput(u) {
-    u = u.trim()
-    if (u.includes("t.me/")) u = u.split("/").pop()
-    if (u.startsWith("@")) u = u.slice(1)
-    return u
-  }
-
-  function updateSummary(type) {
-    if (type === "success") successCount++
-    else if (type === "failed") failedCount++
-    else skippedCount++
+  // ================= SUMMARY =================
+  function updateSummary(statusType) {
+    if (statusType === "success") successCount++
+    else if (statusType === "failed") failedCount++
+    else if (statusType === "skipped") skippedCount++
 
     document.getElementById("successCount").innerText = successCount
     document.getElementById("failedCount").innerText = failedCount
     document.getElementById("skippedCount").innerText = skippedCount
   }
 
-  function processResult(type) {
-    updateSummary(type)
+  function processResult(status) {
+    updateSummary(status)
     total++
     counter.innerText = total
-    progress.style.width = totalUsers ? ((total / totalUsers) * 100) + "%" : "0%"
+    progress.style.width = Math.min((total / 100) * 100, 100) + "%"
   }
 
   let accounts = await getAccounts()
 
+  // ================= ACCOUNT ROTATION =================
   function getNextAccount() {
     const keys = Object.keys(accounts)
     const now = Date.now()
+
     for (let i = 0; i < keys.length; i++) {
       let idx = (accIndex + i) % keys.length
       let acc = accounts[keys[idx]]
+
       if (acc.status === "active" && (!acc.floodWaitUntil || acc.floodWaitUntil < now)) {
         return { acc, index: idx }
       }
@@ -473,7 +433,7 @@ let totalUsers = 0
     return null
   }
 
-  // ===== ADD WITH ROTATION =====
+  // ================= ADD MEMBER =================
   async function addWithRotation(member) {
     const userKey = member.username || member.user_id
     let added = false
@@ -483,13 +443,17 @@ let totalUsers = 0
       let accObj = getNextAccount()
 
       if (!accObj) {
-        let nextTimes = Object.values(accounts).filter(a => a.floodWaitUntil).map(a => a.floodWaitUntil)
+        let nextTimes = Object.values(accounts)
+          .filter(a => a.floodWaitUntil)
+          .map(a => a.floodWaitUntil)
+
         let nextTime = nextTimes.length ? Math.min(...nextTimes) : Date.now() + 60000
         let waitMs = nextTime - Date.now()
-        let timeStr = new Date(nextTime).toLocaleString('en-US', { hour12: true })
+        let timeStr = new Date(nextTime).toLocaleString()
 
-        status.innerText = `⚠️ All accounts Flood wait → ${timeStr}`
-        log(`⚠️ All accounts Flood wait → ${timeStr}`, userKey, "red")
+        status.innerText = `⚠️ All accounts Flood → resume ${timeStr}`
+        consoleBox.innerHTML += `<p style="color:red;">⚠️ Wait until ${timeStr}</p>`
+
         await new Promise(r => setTimeout(r, waitMs))
         continue
       }
@@ -501,38 +465,54 @@ let totalUsers = 0
       log(`🔹 Using ${acc.phone || acc.id} → ${userKey}`, userKey, "cyan")
 
       try {
-       const res = await fetch("/add-member", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(member)
-})
+        const res = await fetch("/add-member", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(member)
+        })
 
-if (!res.ok) {
-  throw new Error(`Server ${res.status}`)
-}
+        const result = await res.json()
 
-        const data = await res.json()
-        const result = Array.isArray(data) ? data[0] : data
+        // ================= FINAL LOGIC =================
 
         if (result.status === "success") {
-          log(`✅ ${userKey} → SUCCESS`, userKey, "lime")
+
+          log(`${userKey} → SUCCESS`, userKey, "lime")
           processResult("success")
-          await countdown(20, "Next account delay")
+
+          await countdown(20, "Next delay")
           accIndex = (accIndex + 1) % Object.keys(accounts).length
           added = true
 
-        } else if (result.reason && result.reason.toLowerCase().includes("flood")) {
+        } 
+        else if (result.status === "skipped") {
+
+          log(`${userKey} → SKIPPED`, userKey, "orange")
+          processResult("skipped")
+
+          accIndex = (accIndex + 1) % Object.keys(accounts).length
+          added = true
+
+        } 
+        else if (result.reason && result.reason.toLowerCase().includes("flood")) {
+
           let match = result.reason.match(/(\d+)/)
           let waitSec = match ? Number(match[1]) : 60
+
           acc.floodWaitUntil = Date.now() + waitSec * 1000
           acc.status = "floodwait"
-          let timeStr = new Date(acc.floodWaitUntil).toLocaleString('en-US', { hour12: true })
-          log(`⚠️ ${acc.phone || acc.id} Flood → ${timeStr}`, userKey, "orange")
+
+          let timeStr = new Date(acc.floodWaitUntil).toLocaleString()
+          log(`⚠️ Flood → ${timeStr}`, userKey, "orange")
+
           accIndex = (accIndex + 1) % Object.keys(accounts).length
 
-        } else {
-          log(`❌ ${userKey} → FAILED (${result.reason})`, userKey, "red")
+        } 
+        else {
+
+          log(`${userKey} → FAILED`, userKey, "red")
           processResult("failed")
+
           accIndex = (accIndex + 1) % Object.keys(accounts).length
           added = true
         }
@@ -540,24 +520,22 @@ if (!res.ok) {
       } catch (err) {
         log(`❌ Error: ${err.message}`, userKey, "red")
         processResult("failed")
+
         accIndex = (accIndex + 1) % Object.keys(accounts).length
         added = true
       }
     }
   }
 
-  // ===============================
-  // GROUP MODE
-  // ===============================
+  // ================= GROUP MODE =================
   if (isGroupMode) {
-    status.innerText = "Joining source group..."
+    status.innerText = "Joining groups..."
     await autoJoinAllAccounts(sourceValue)
-
-    status.innerText = "Joining target group..."
     await autoJoinAllAccounts(target)
 
     while (true) {
       status.innerText = "Fetching members..."
+
       const res = await fetch("/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -568,17 +546,19 @@ if (!res.ok) {
       if (data.error) break
 
       const members = data.members || []
-      totalUsers += members.length
       if (!members.length) break
+
       offset = data.nextOffset
 
       for (const m of members) {
         const userKey = m.user_id || m.username
+
         if (historySet.has(userKey)) {
           log(`⏭️ Skipped ${userKey}`, userKey, "orange")
           processResult("skipped")
           continue
         }
+
         await addWithRotation({
           username: m.username,
           user_id: m.user_id,
@@ -589,15 +569,12 @@ if (!res.ok) {
     }
   }
 
-  // ===============================
-  // TEXT MODE
-  // ===============================
+  // ================= TEXT MODE =================
   else {
-    status.innerText = "Joining target group..."
+    status.innerText = "Joining target..."
     await autoJoinAllAccounts(target)
 
-    const userList = sourceValue.split("\n").map(u => normalizeInput(u)).filter(Boolean)
-    totalUsers = userList.length
+    const userList = sourceValue.split("\n").map(u => u.trim()).filter(Boolean)
 
     for (const u of userList) {
       if (historySet.has(u)) {
@@ -605,6 +582,7 @@ if (!res.ok) {
         processResult("skipped")
         continue
       }
+
       await addWithRotation({ username: u, targetGroup: target })
     }
   }
@@ -612,7 +590,6 @@ if (!res.ok) {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-// ===== Countdown Function =====
 async function countdown(seconds, message) {
   for (let i = seconds; i > 0; i--) {
     status.innerText = `${message}: ${i}s`
